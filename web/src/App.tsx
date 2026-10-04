@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import './App.css'
 import { api, type Card, type Evento, type Quadro } from './api'
 import { Coluna } from './components/Coluna'
@@ -33,6 +33,36 @@ export default function App() {
   }
 
   const [projeto, setProjeto] = useState('')
+
+  // Menu de ajustes do cabeçalho: fecha ao clicar fora e com Esc, devolvendo o foco ao botão.
+  const [menuAberto, setMenuAberto] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const botaoMenuRef = useRef<HTMLButtonElement>(null)
+  const fecharMenu = useCallback((devolverFoco = false) => {
+    setMenuAberto(false)
+    if (devolverFoco) botaoMenuRef.current?.focus()
+  }, [])
+  useEffect(() => {
+    if (!menuAberto) return
+    menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()
+    const fora = (e: PointerEvent) => { if (!menuRef.current?.contains(e.target as Node)) fecharMenu() }
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); fecharMenu(true) } }
+    document.addEventListener('pointerdown', fora)
+    document.addEventListener('keydown', tecla)
+    return () => { document.removeEventListener('pointerdown', fora); document.removeEventListener('keydown', tecla) }
+  }, [menuAberto, fecharMenu])
+  function teclasDoMenu(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Tab') { fecharMenu(); return }
+    if (!(e.target as HTMLElement).matches('[role="menuitem"]')) return
+    const itens = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')]
+    const atual = itens.indexOf(e.target as HTMLButtonElement)
+    const destino = e.key === 'ArrowDown' ? (atual + 1) % itens.length
+      : e.key === 'ArrowUp' ? (atual - 1 + itens.length) % itens.length
+      : e.key === 'Home' ? 0 : e.key === 'End' ? itens.length - 1 : -1
+    if (destino < 0) return
+    e.preventDefault()
+    itens[destino]?.focus()
+  }
   const autores = useAutores(quadro)
   const fecharPainel = useCallback(() => setSelecionado(null), [])
 
@@ -159,20 +189,39 @@ export default function App() {
   const projetos = [...new Set(quadro.colunas.flatMap(c => c.cards.map(projetoDoCard)))].sort((a, b) => a.localeCompare(b, 'pt-BR'))
   const filtrar = (c: Card) => !projeto || (projeto === '__sem__' ? !projetoDoCard(c) : projetoDoCard(c) === projeto)
   const visiveis = quadro.colunas.reduce((n, c) => n + c.cards.filter(filtrar).length, 0)
+  const opcoesProjeto = <><option value="">Todos os projetos</option>{projetos.filter(Boolean).map(p => <option key={p} value={p}>{p}</option>)}{projetos.includes('') && <option value="__sem__">Sem projeto</option>}</>
 
   return (
     <div className={`app fundo--${preferencias.fundo}${preferencias.wallpaper ? ' com-wallpaper' : ''}${preferencias.largura ? ' listas-fixas' : ''}`} style={{ '--largura-lista': `${preferencias.largura}px`, '--wallpaper': preferencias.wallpaper ? `url("${preferencias.wallpaper}")` : 'none' } as CSSProperties}>
       <header className="topo">
         <div className="topo__identidade">
           <span className="marca" aria-hidden="true"><i /><i /><i /></span>
-          <div><p className="topo__produto">agent-board <span>/</span> espaço de trabalho</p><h1 className="topo__titulo">{quadro.nome}</h1></div>
+          <h1 className="topo__titulo" title="agent-board · espaço de trabalho">{quadro.nome}</h1>
         </div>
-        <div className="topo__situacao"><span className={`conexao${erro ? ' conexao--erro' : ''}`}>{erro ? 'Conexão interrompida' : 'Atualização automática'}</span><span className="topo__meta">{total} cards</span></div>
+        <div className="filtro filtro--topo">
+          <label htmlFor="projeto" className="so-leitor">Projeto</label>
+          <select id="projeto" value={projeto} onChange={e => setProjeto(e.target.value)}>{opcoesProjeto}</select>
+          {projeto && <span className="filtro__contagem">{visiveis} de {total}</span>}
+        </div>
+        <div className="menu" ref={menuRef}>
+          <button ref={botaoMenuRef} className={`btn menu__botao${erro ? ' menu__botao--alerta' : ''}`} aria-label={erro ? 'Ajustes (conexão interrompida)' : 'Ajustes'} title="Ajustes" aria-haspopup="menu" aria-expanded={menuAberto} aria-controls="menu-ajustes" onClick={() => setMenuAberto(a => !a)} onKeyDown={e => { if (e.key === 'ArrowDown') { e.preventDefault(); setMenuAberto(true) } }}>
+            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="3.5" cy="9" r="1.6" fill="currentColor" /><circle cx="9" cy="9" r="1.6" fill="currentColor" /><circle cx="14.5" cy="9" r="1.6" fill="currentColor" /></svg>
+          </button>
+          {menuAberto && (
+            <div id="menu-ajustes" className="menu__lista" role="menu" aria-label="Ajustes" onKeyDown={teclasDoMenu}>
+              <div className="menu__filtro">
+                <label htmlFor="projeto-menu">Projeto</label>
+                <select id="projeto-menu" value={projeto} onChange={e => setProjeto(e.target.value)}>{opcoesProjeto}</select>
+              </div>
+              <button role="menuitem" className="menu__item" disabled={!acoes.length || desfazendo} onClick={() => { fecharMenu(); void desfazer() }}><span>{desfazendo ? 'Desfazendo…' : 'Desfazer'}</span><kbd>Ctrl+Z</kbd></button>
+              <button role="menuitem" className="menu__item" onClick={() => { fecharMenu(); setArquivadosAbertos(true) }}>Arquivados</button>
+              <button role="menuitem" className="menu__item" onClick={() => { fecharMenu(); setPersonalizando(true) }}>Personalizar</button>
+              <div className="menu__separador" role="separator" />
+              <div className="menu__info"><span className={`conexao${erro ? ' conexao--erro' : ''}`}>{erro ? 'Conexão interrompida' : 'Atualização automática ativa'}</span><span>{projeto ? `${visiveis} de ${total}` : total} cards</span></div>
+            </div>
+          )}
+        </div>
       </header>
-      <div className="ferramentas">
-        <div className="filtro"><label htmlFor="projeto">Projeto</label><select id="projeto" value={projeto} onChange={e => setProjeto(e.target.value)}><option value="">Todos os projetos</option>{projetos.filter(Boolean).map(p => <option key={p} value={p}>{p}</option>)}{projetos.includes('') && <option value="__sem__">Sem projeto</option>}</select><span className="filtro__contagem">{projeto ? `${visiveis} de ${total}` : total} cards</span></div>
-        <div className="ferramentas__acoes"><button className="btn" disabled={!acoes.length || desfazendo} onClick={() => void desfazer()} title="Ctrl+Z · ações desta sessão. Em campos de texto, desfaz a digitação.">{desfazendo ? 'Desfazendo…' : 'Desfazer'}</button><button className="btn" onClick={() => setArquivadosAbertos(true)}>Arquivados</button><button className="btn btn--personalizar" onClick={() => setPersonalizando(true)}>Personalizar</button></div>
-      </div>
       {avisoAcao && <div className="aviso-acao" role="status"><span>{avisoAcao}</span><button onClick={() => setAvisoAcao('')} aria-label="Fechar aviso">×</button></div>}
       {erroPreferencia && <p className="aviso-conexao" role="alert">{erroPreferencia}</p>}
       {erro && <div className="aviso-conexao" role="alert"><strong>Não foi possível atualizar o quadro.</strong> Os últimos dados continuam visíveis. Tentando reconectar… <span>{erro}</span></div>}

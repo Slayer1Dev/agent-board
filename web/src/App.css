@@ -524,3 +524,49 @@
 .arquivo__titulo:hover { text-decoration: underline; }
 .arquivo__vazio { color: var(--dim); padding: 24px 0; }
 @media (max-width: 760px) { .ferramentas__acoes { width: 100%; } .ferramentas__acoes .btn { flex: 1; padding-inline: 8px; font-size: 12px; } .aviso-acao { padding-inline: 16px; } }
+
+/* ===== Cabeçalho compacto com menu de ajustes ===== */
+.topo { position: relative; z-index: 15; min-height: 52px; padding: 0 24px; gap: 16px; justify-content: flex-start; }
+.topo__identidade { gap: 10px; min-width: 0; }
+.marca { width: 28px; height: 28px; gap: 3px; padding: 6px; border-radius: 8px; flex-shrink: 0; }
+.marca i { width: 3px; height: 9px; }
+.marca i:nth-child(2) { height: 15px; }
+.marca i:nth-child(3) { height: 6px; }
+.topo__titulo { font-size: 17px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.filtro--topo select { min-height: 36px; max-width: 220px; }
+.so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.quadro { padding-top: 14px; }
+.menu { position: relative; margin-left: auto; flex-shrink: 0; }
+.menu__botao { width: 36px; min-height: 36px; padding: 0; display: grid; place-items: center; position: relative; background: var(--coluna); }
+.menu__botao[aria-expanded="true"] { background: var(--card-hover); }
+.menu__botao--alerta::after { content: ""; position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--perigo); box-shadow: 0 0 0 2px var(--painel-forte); }
+.menu__lista { position: absolute; top: calc(100% + 8px); right: 0; min-width: 248px; padding: 6px; display: grid; gap: 2px; background: var(--painel-forte); border: 1px solid var(--linha-forte); border-radius: 12px; box-shadow: 0 16px 40px #0000004d; transform-origin: top right; animation: menu-abrir 160ms ease-out; }
+@keyframes menu-abrir { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .menu__lista { animation: none; } }
+.menu__item { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-height: 40px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: var(--texto); font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
+.menu__item:hover:not(:disabled), .menu__item:focus-visible { background: var(--card-hover); }
+.menu__item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.menu__item:disabled { opacity: .55; cursor: not-allowed; }
+.menu__item kbd { font: 500 11px var(--mono); color: var(--dim); border: 1px solid var(--linha); border-radius: 5px; padding: 2px 6px; }
+.menu__separador { height: 1px; background: var(--linha); margin: 4px 2px; }
+.menu__info { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 10px 8px; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.menu__filtro { display: none; padding: 6px 4px 8px; }
+.menu__filtro label { display: block; font-size: 11px; font-weight: 600; color: var(--dim); margin-bottom: 6px; }
+.menu__filtro select { width: 100%; min-height: 44px; background: var(--coluna); border: 1px solid var(--linha-forte); border-radius: 7px; padding: 0 32px 0 12px; font-size: 13px; }
+/* O cabeçalho de vidro limita o desfoque dos filhos, então o menu usa uma superfície sólida: com transparência, o texto dos cards atrás vazava e atrapalhava a leitura. */
+[data-tema="glass"] .menu__lista { background: linear-gradient(180deg, rgb(24, 37, 58) 0%, rgb(15, 24, 40) 100%); border-color: rgba(255, 255, 255, 0.22); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.28); }
+[data-tema="glass"] .topo { border-bottom: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); }
+@media (max-width: 760px) {
+  .topo { padding: 0 16px; min-height: 52px; align-items: center; }
+  .marca { display: flex; }
+  .topo__titulo { font-size: 17px; }
+  .filtro--topo { display: none; }
+  .menu__filtro { display: block; }
+  .menu__botao { width: 44px; min-height: 44px; }
+  .menu__item { min-height: 44px; }
+  .menu__lista { min-width: min(280px, calc(100vw - 32px)); }
+  .quadro { padding-top: 12px; }
+}
+.menu__lista { min-width: 290px; }
+.menu__info span { white-space: nowrap; }
+@media (max-width: 760px) { .menu__lista { min-width: min(290px, calc(100vw - 32px)); } }
