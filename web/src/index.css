@@ -63,11 +63,11 @@ button { cursor: pointer; }
 }
 :root[data-tema="glass"] {
   color-scheme: dark;
-  --bg: #0d1624;
-  --coluna: rgba(18, 28, 44, 0.65);
-  --card: rgba(26, 40, 60, 0.78);
-  --card-hover: rgba(38, 58, 86, 0.90);
-  --campo: rgba(12, 20, 32, 0.72);
+  --bg: #07080a;
+  --coluna: rgba(13, 13, 14, 0.65);
+  --card: rgba(18, 18, 19, 0.78);
+  --card-hover: rgba(25, 25, 26, 0.90);
+  --campo: rgba(9, 9, 10, 0.72);
   --linha: rgba(255, 255, 255, 0.16);
   --linha-forte: rgba(255, 255, 255, 0.28);
   --texto: #f4f8ff;
@@ -85,7 +85,7 @@ button { cursor: pointer; }
   --a-agy: #cbc2ff;
   --a-web: #c5d2e2;
   --projeto-luz: 82%;
-  --painel-forte: rgba(14, 22, 36, 0.78);
+  --painel-forte: rgba(10, 10, 11, 0.78);
   --r-coluna: 18px;
   --r-card: 12px;
   --sombra: 0 4px 16px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.28);
