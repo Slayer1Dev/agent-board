@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Evento } from '../api'
+import { Autor, DataHora } from './Identidade'
 
 /**
  * Barra de atividade: mostra o que cada sessão fez. É o motivo de o quadro
@@ -14,23 +15,25 @@ export function Atividade({ eventos }: { eventos: Evento[] }) {
         className="atividade__alca"
         onClick={() => setAberta((v) => !v)}
         aria-expanded={aberta}
+        aria-controls="atividade-lista"
       >
-        Atividade
+        <span className="atividade__titulo">Atividade recente</span><span className="atividade__contagem">{eventos.length}</span>
+        {!aberta && eventos[0] && <span className="atividade__resumo"><Autor nome={eventos[0].autor} /><span>{eventos[0].acao} · {eventos[0].card_titulo || eventos[0].detalhe}</span></span>}
         <span className="atividade__seta" aria-hidden="true">
           {aberta ? '▾' : '▴'}
         </span>
       </button>
 
       {aberta && (
-        <ul className="atividade__lista">
-          {eventos.length === 0 && <li className="atividade__vazio">Nada ainda.</li>}
+        <ul className="atividade__lista" id="atividade-lista">
+          {eventos.length === 0 && <li className="atividade__vazio">Nenhuma atividade registrada ainda.</li>}
           {eventos.map((e, i) => (
             <li className="evento" key={i}>
-              <span className={`autor autor--${e.autor}`}>{e.autor}</span>
+              <Autor nome={e.autor} />
               <span className="evento__acao">{e.acao}</span>
               {e.card_titulo && <span className="evento__alvo">{e.card_titulo}</span>}
               {e.detalhe && <span className="evento__detalhe">{e.detalhe}</span>}
-              <time className="evento__hora">{e.criado_em.slice(5, 16)}</time>
+              <DataHora valor={e.criado_em} />
             </li>
           ))}
         </ul>

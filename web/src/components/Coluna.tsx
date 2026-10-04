@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import type { Coluna as TColuna } from '../api'
+import { Autor, DataHora, Projeto, projetoDoCard, tituloDoCard } from './Identidade'
 
 type Props = {
+  total: number
+  filtrado: boolean
+  autores: Record<string, string | null>
   coluna: TColuna
   arrastando: string | null
   aoArrastar: (id: string | null) => void
@@ -10,7 +14,7 @@ type Props = {
   aoAdicionar: (titulo: string) => void
 }
 
-export function Coluna({ coluna, arrastando, aoArrastar, aoSoltar, aoAbrir, aoAdicionar }: Props) {
+export function Coluna({ coluna, total, filtrado, autores, arrastando, aoArrastar, aoSoltar, aoAbrir, aoAdicionar }: Props) {
   const [sobre, setSobre] = useState(false)
   const [novo, setNovo] = useState('')
   const [abrindo, setAbrindo] = useState(false)
@@ -24,9 +28,12 @@ export function Coluna({ coluna, arrastando, aoArrastar, aoSoltar, aoAbrir, aoAd
     setAbrindo(false)
   }
 
+  const estado = coluna.nome === 'Em andamento' ? 'andamento' : coluna.nome === 'Revisão' ? 'revisao' : coluna.nome === 'Concluído' ? 'concluido' : 'afazer'
+  const dica = { andamento: 'Trabalho em curso', revisao: 'Para conferir', concluido: 'Entregas registradas', afazer: 'Próximos passos' }[estado]
+
   return (
     <section
-      className={`coluna${sobre ? ' coluna--alvo' : ''}`}
+      className={`coluna coluna--${estado}${sobre ? ' coluna--alvo' : ''}`}
       onDragOver={(e) => {
         e.preventDefault()
         setSobre(true)
@@ -39,12 +46,12 @@ export function Coluna({ coluna, arrastando, aoArrastar, aoSoltar, aoAbrir, aoAd
       aria-label={coluna.nome}
     >
       <header className="coluna__topo">
-        <h2 className="coluna__nome">{coluna.nome}</h2>
-        <span className="coluna__contagem">{coluna.cards.length}</span>
+        <div><h2 className="coluna__nome"><span className="coluna__sinal" aria-hidden="true" />{coluna.nome}</h2><p className="coluna__dica">{dica}</p></div>
+        <span className="coluna__contagem">{coluna.cards.length}{filtrado && <small> / {total}</small>}</span>
       </header>
 
       {coluna.cards.length === 0 && (
-        <p className="coluna__vazia">{sobre ? 'Soltar aqui' : 'Vazia'}</p>
+        <p className="coluna__vazia">{sobre ? 'Soltar aqui' : filtrado ? 'Nenhum card deste projeto aqui.' : 'Nenhum card nesta etapa.'}</p>
       )}
 
       <ul className="coluna__lista" hidden={coluna.cards.length === 0}>
@@ -66,8 +73,8 @@ export function Coluna({ coluna, arrastando, aoArrastar, aoSoltar, aoAbrir, aoAd
               role="button"
               aria-label={`Abrir ${card.titulo}`}
             >
-              <p className="card__titulo">{card.titulo}</p>
-              {card.projeto && <span className="card__projeto">{card.projeto}</span>}
+              <p className="card__titulo">{tituloDoCard(card)}</p>
+              <div className="card__rodape"><Projeto nome={projetoDoCard(card)} />{card.id in autores ? <Autor nome={autores[card.id]} /> : <span className="card__autoria-carregando">Carregando autoria…</span>}<DataHora valor={card.atualizado_em} curta /></div>
             </article>
           </li>
         ))}
@@ -80,6 +87,7 @@ export function Coluna({ coluna, arrastando, aoArrastar, aoSoltar, aoAbrir, aoAd
             value={novo}
             onChange={(e) => setNovo(e.target.value)}
             placeholder="Título do card"
+            aria-label="Título do card"
             rows={2}
             autoFocus
             onKeyDown={(e) => {
