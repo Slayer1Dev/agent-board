@@ -17,6 +17,20 @@ export type Card = {
 export type Coluna = { id: string; quadro_id: string; nome: string; posicao: number }
 export type Quadro = { id: string; nome: string; criado_em: string }
 
+export function pesquisarCards(busca = '') {
+  const termo = busca.trim().toLocaleLowerCase('pt-BR')
+  const cards = db.prepare(`SELECT c.*, col.nome AS coluna FROM cards c JOIN colunas col ON col.id = c.coluna_id ORDER BY c.atualizado_em DESC, c.id`).all() as (Card & { coluna: string })[]
+  return cards.flatMap(card => {
+    const comentarios = db.prepare("SELECT detalhe FROM eventos WHERE card_id = ? AND acao = 'comentou' ORDER BY rowid").all(card.id) as { detalhe: string }[]
+    const campos = [card.titulo, card.descricao, card.projeto ?? '', ...comentarios.map(c => c.detalhe)]
+    const encontrado = campos.find(c => c.toLocaleLowerCase('pt-BR').includes(termo))
+    if (encontrado === undefined) return []
+    const inicio = encontrado.toLocaleLowerCase('pt-BR').indexOf(termo)
+    const trecho = encontrado.slice(Math.max(0, inicio - 65), inicio + termo.length + 100)
+    return [{ ...card, trecho }]
+  })
+}
+
 /** Operações usadas tanto pela API REST quanto pelas ferramentas MCP. */
 
 export function listarQuadros(): Quadro[] {

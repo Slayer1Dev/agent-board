@@ -7,6 +7,7 @@ import { Atividade } from './components/Atividade'
 import { projetoDoCard } from './components/Identidade'
 import { useAutores } from './components/useAutores'
 import { Arquivados } from './components/Arquivados'
+import { Busca } from './components/Busca'
 import { Aparencia, lerPreferencias, salvarPreferencias, type Preferencias } from './components/Aparencia'
 
 export default function App() {
@@ -222,6 +223,7 @@ export default function App() {
           )}
         </div>
       </header>
+      <Busca aoAbrir={setSelecionado} versao={assinatura.current} />
       {avisoAcao && <div className="aviso-acao" role="status"><span>{avisoAcao}</span><button onClick={() => setAvisoAcao('')} aria-label="Fechar aviso">×</button></div>}
       {erroPreferencia && <p className="aviso-conexao" role="alert">{erroPreferencia}</p>}
       {erro && <div className="aviso-conexao" role="alert"><strong>Não foi possível atualizar o quadro.</strong> Os últimos dados continuam visíveis. Tentando reconectar… <span>{erro}</span></div>}

@@ -17,6 +17,7 @@ import {
   listarArquivados,
   arquivarCard,
   desfazerAcao,
+  pesquisarCards,
 } from './nucleo.js'
 
 const PORTA = Number(process.env.BOARD_PORT ?? 8078)
@@ -54,6 +55,7 @@ api.get('/quadro', (_req, res) => res.json(quadroCompleto()))
 api.get('/atividade', (req, res) => res.json(atividade(Number(req.query.limite ?? 50))))
 
 api.get('/arquivados', (_req, res) => res.json(listarArquivados()))
+api.get('/cards', (req, res) => res.json(pesquisarCards(String(req.query.busca ?? ''))))
 
 api.get('/cards/:id', (req, res) => {
   const c = obterCard(req.params.id)

@@ -43,6 +43,7 @@ async function req<T>(caminho: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  pesquisar: (busca: string) => req<(Card & { coluna: string; trecho: string })[]>(`/cards?busca=${encodeURIComponent(busca)}`),
   quadro: () => req<Quadro>('/quadro'),
   atividade: (limite = 30) => req<Evento[]>(`/atividade?limite=${limite}`),
   card: (id: string) => req<Card & { eventos: Evento[] }>(`/cards/${id}`),

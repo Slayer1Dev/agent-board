@@ -4,6 +4,7 @@ const dbPath = ':memory:'
 process.env.BOARD_DB = dbPath
 
 const { db, semear } = await import('./db.js')
+const { pesquisarCards } = await import('./nucleo.js')
 const { criarCard, moverCard, comentar, atividade, listarColunas, quadroPadrao, atualizarCard, obterCard, quadroCompleto, listarArquivados, arquivarCard, desfazerAcao } = await import('./nucleo.js')
 
 type Coluna = { nome: string; id: string }
@@ -128,3 +129,19 @@ describe('Arquivamento e desfazer com concorrência', () => {
 })
 
 afterAll(() => db.close())
+
+describe('Pesquisa', () => {
+  it('encontra título, descrição, projeto e comentário arquivado sem duplicar', () => {
+    const c = criarCard({ titulo: 'Agulha Título', descricao: 'Contexto ÚNICO', projeto: 'Projeto Especial', autor: 'codex' })
+    comentar(c.id, 'lucas', 'Comentário pesquisável <script>')
+    comentar(c.id, 'lucas', 'Comentário pesquisável novamente')
+    arquivarCard(c.id, 'codex')
+    for (const busca of ['agulha', 'único', 'projeto especial', 'pesquisável']) {
+      const resultados = pesquisarCards(busca).filter(r => r.id === c.id)
+      expect(resultados).toHaveLength(1)
+      expect(resultados[0].arquivado_em).toBeTruthy()
+      expect(resultados[0].trecho.toLowerCase()).toContain(busca)
+    }
+    expect(pesquisarCards('ausente 123xyz')).toHaveLength(0)
+  })
+})

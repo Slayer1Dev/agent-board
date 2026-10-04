@@ -12,6 +12,7 @@ import {
   listarArquivados,
   arquivarCard,
   desfazerAcao,
+  pesquisarCards,
 } from './nucleo.js'
 
 const texto = (valor: unknown) => ({
@@ -34,6 +35,10 @@ const AUTOR = z
 
 export function criarServidorMcp() {
   const s = new McpServer({ name: 'agent-board', version: '0.1.0' })
+  s.registerTool('pesquisar_cards', {
+    description: 'Pesquisa título, descrição, projeto e comentários, incluindo arquivados.',
+    inputSchema: { busca: z.string().optional() },
+  }, async ({ busca }) => { try { return texto(pesquisarCards(busca)) } catch (e) { return erro(e) } })
 
   s.registerTool(
     'ver_quadro',
