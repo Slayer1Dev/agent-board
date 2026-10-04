@@ -14,6 +14,7 @@ import {
   desfazerAcao,
   pesquisarCards,
   listarTags, criarTag, alterarTag, definirTags,
+  filtrarCards,
 } from './nucleo.js'
 
 const texto = (valor: unknown) => ({
@@ -36,6 +37,11 @@ const AUTOR = z
 
 export function criarServidorMcp() {
   const s = new McpServer({ name: 'agent-board', version: '0.1.0' })
+  s.registerTool('filtrar_cards', { inputSchema: {
+    busca: z.string().optional(), projeto: z.string().optional(), tag: z.string().optional(), autor: z.string().optional(), coluna: z.string().optional(),
+    depende: z.boolean().optional(), lembrete: z.boolean().optional(), repetida: z.boolean().optional(), dias: z.number().int().min(1).max(36500).optional(),
+    periodo: z.enum(['criado', 'alterado']).optional(), arquivados: z.boolean().optional(),
+  } }, async ({ busca, ...filtros }) => { try { return texto(filtrarCards(busca, filtros)) } catch (e) { return erro(e) } })
   s.registerTool('listar_tags', { inputSchema: {} }, async () => texto(listarTags()))
   s.registerTool('criar_tag', { inputSchema: { nome: z.string(), cor: z.string().optional(), autor: AUTOR } }, async ({ nome, cor, autor }) => { try { return texto(criarTag(nome, autor, cor)) } catch (e) { return erro(e) } })
   s.registerTool('alterar_tag', { inputSchema: { id: z.string(), nome: z.string().optional(), apagar: z.boolean().optional(), autor: AUTOR } }, async ({ id, nome, apagar, autor }) => { try { return texto(alterarTag(id, autor, nome, apagar)) } catch (e) { return erro(e) } })

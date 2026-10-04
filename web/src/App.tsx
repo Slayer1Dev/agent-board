@@ -8,6 +8,7 @@ import { projetoDoCard } from './components/Identidade'
 import { useAutores } from './components/useAutores'
 import { Arquivados } from './components/Arquivados'
 import { Busca } from './components/Busca'
+import { Filtros } from './components/Filtros'
 import { Aparencia, lerPreferencias, salvarPreferencias, type Preferencias } from './components/Aparencia'
 
 export default function App() {
@@ -33,7 +34,21 @@ export default function App() {
     catch { setErroPreferencia('A aparência foi aplicada, mas não pôde ser salva neste navegador. Tente remover o wallpaper ou liberar espaço.') }
   }
 
-  const [projeto, setProjeto] = useState('')
+  const [filtros, setFiltros] = useState<Record<string, string>>(() => Object.fromEntries(new URLSearchParams(location.search)))
+  const projeto = filtros.projeto || ''
+  const setProjeto = (valor: string) => setFiltros(f => { const novo = { ...f }; if (valor) novo.projeto = valor; else delete novo.projeto; return novo })
+  const [idsFiltrados, setIdsFiltrados] = useState<Set<string> | null>(null)
+  useEffect(() => {
+    history.replaceState(null, '', `${location.pathname}${Object.keys(filtros).length ? '?' + new URLSearchParams(filtros) : ''}${location.hash}`)
+    let ativo = true
+    api.filtrar(filtros).then(cards => { if (ativo) setIdsFiltrados(new Set(cards.map(c => c.id))) }).catch(e => { if (ativo) setErro((e as Error).message) })
+    return () => { ativo = false }
+  }, [filtros, quadro])
+  useEffect(() => {
+    const voltar = () => setFiltros(Object.fromEntries(new URLSearchParams(location.search)))
+    window.addEventListener('popstate', voltar)
+    return () => window.removeEventListener('popstate', voltar)
+  }, [])
 
   // Menu de ajustes do cabeçalho: fecha ao clicar fora e com Esc, devolvendo o foco ao botão.
   const [menuAberto, setMenuAberto] = useState(false)
@@ -188,7 +203,7 @@ export default function App() {
   const total = quadro.colunas.reduce((n, c) => n + c.cards.length, 0)
 
   const projetos = [...new Set(quadro.colunas.flatMap(c => c.cards.map(projetoDoCard)))].sort((a, b) => a.localeCompare(b, 'pt-BR'))
-  const filtrar = (c: Card) => !projeto || (projeto === '__sem__' ? !projetoDoCard(c) : projetoDoCard(c) === projeto)
+  const filtrar = (c: Card) => !Object.keys(filtros).length || !!idsFiltrados?.has(c.id)
   const visiveis = quadro.colunas.reduce((n, c) => n + c.cards.filter(filtrar).length, 0)
   const opcoesProjeto = <><option value="">Todos os projetos</option>{projetos.filter(Boolean).map(p => <option key={p} value={p}>{p}</option>)}{projetos.includes('') && <option value="__sem__">Sem projeto</option>}</>
 
@@ -224,6 +239,7 @@ export default function App() {
         </div>
       </header>
       <Busca aoAbrir={setSelecionado} versao={assinatura.current} />
+      <Filtros valor={filtros} aoMudar={setFiltros} quadro={quadro} />
       {avisoAcao && <div className="aviso-acao" role="status"><span>{avisoAcao}</span><button onClick={() => setAvisoAcao('')} aria-label="Fechar aviso">×</button></div>}
       {erroPreferencia && <p className="aviso-conexao" role="alert">{erroPreferencia}</p>}
       {erro && <div className="aviso-conexao" role="alert"><strong>Não foi possível atualizar o quadro.</strong> Os últimos dados continuam visíveis. Tentando reconectar… <span>{erro}</span></div>}
@@ -233,7 +249,7 @@ export default function App() {
             key={c.id}
             coluna={{ ...c, cards: c.cards.filter(filtrar) }}
             total={c.cards.length}
-            filtrado={!!projeto}
+            filtrado={!!Object.keys(filtros).length}
             autores={autores}
             arrastando={arrastando}
             aoArrastar={setArrastando}

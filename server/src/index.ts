@@ -19,6 +19,7 @@ import {
   desfazerAcao,
   pesquisarCards,
   listarTags, criarTag, alterarTag, definirTags,
+  filtrarCards,
 } from './nucleo.js'
 
 const PORTA = Number(process.env.BOARD_PORT ?? 8078)
@@ -56,7 +57,11 @@ api.get('/quadro', (_req, res) => res.json(quadroCompleto()))
 api.get('/atividade', (req, res) => res.json(atividade(Number(req.query.limite ?? 50))))
 
 api.get('/arquivados', (_req, res) => res.json(listarArquivados()))
-api.get('/cards', (req, res) => res.json(pesquisarCards(String(req.query.busca ?? ''))))
+api.get('/cards', (req, res) => res.json(filtrarCards(String(req.query.busca ?? ''), {
+  projeto: req.query.projeto?.toString(), tag: req.query.tag?.toString(), autor: req.query.autor?.toString(), coluna: req.query.coluna?.toString(),
+  depende: req.query.depende === 'true', lembrete: req.query.lembrete === 'true', repetida: req.query.repetida === 'true',
+  dias: req.query.dias === undefined ? undefined : Number(req.query.dias), periodo: req.query.periodo === 'criado' ? 'criado' : 'alterado', arquivados: req.query.arquivados !== 'false',
+})))
 api.get('/tags', (_req, res) => res.json(listarTags()))
 api.post('/tags', (req, res) => res.status(201).json(criarTag(req.body.nome, autor(req), req.body.cor)))
 api.patch('/tags/:id', (req, res) => res.json(alterarTag(req.params.id, autor(req), req.body.nome)))

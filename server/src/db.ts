@@ -57,6 +57,9 @@ db.exec(`
 const camposCard = db.prepare('PRAGMA table_info(cards)').all() as { name: string }[]
 if (!camposCard.some(c => c.name === 'arquivado_em')) db.exec('ALTER TABLE cards ADD COLUMN arquivado_em TEXT')
 if (!camposCard.some(c => c.name === 'revisao')) db.exec('ALTER TABLE cards ADD COLUMN revisao INTEGER NOT NULL DEFAULT 0')
+for (const campo of ['lembrete_em', 'lembrete_nota', 'lembrete_feito_em', 'repeticao_id']) {
+  if (!camposCard.some(c => c.name === campo)) db.exec(`ALTER TABLE cards ADD COLUMN ${campo} TEXT DEFAULT NULL`)
+}
 db.exec(`CREATE TABLE IF NOT EXISTS acoes_reversiveis (
   id TEXT PRIMARY KEY,
   card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,

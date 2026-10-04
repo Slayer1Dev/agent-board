@@ -13,6 +13,11 @@ export type Card = {
   revisao: number
   acao_id?: string
   tags: Tag[]
+  autor: string | null
+  lembrete_em: string | null
+  lembrete_nota: string | null
+  lembrete_feito_em: string | null
+  repeticao_id: string | null
 }
 
 export type Tag = { id: string; nome: string; cor: string }
@@ -20,7 +25,28 @@ export function listarTags(): Tag[] { return db.prepare('SELECT * FROM tags ORDE
 function tagsDoCard(id: string): Tag[] {
   return db.prepare('SELECT t.* FROM tags t JOIN card_tags ct ON ct.tag_id = t.id WHERE ct.card_id = ? ORDER BY t.nome COLLATE NOCASE').all(id) as Tag[]
 }
-function enriquecer(card: Card): Card { return { ...card, tags: tagsDoCard(card.id) } }
+function enriquecer(card: Card): Card {
+  const criador = db.prepare("SELECT autor FROM eventos WHERE card_id = ? AND acao = 'criou' ORDER BY rowid LIMIT 1").get(card.id) as { autor: string } | undefined
+  return { ...card, tags: tagsDoCard(card.id), autor: criador?.autor ?? null }
+}
+
+export type Filtros = { projeto?: string; tag?: string; autor?: string; coluna?: string; depende?: boolean; lembrete?: boolean; repetida?: boolean; dias?: number; periodo?: 'criado' | 'alterado'; arquivados?: boolean }
+export function filtrarCards(busca = '', filtros: Filtros = {}) {
+  if (filtros.dias !== undefined && (!Number.isInteger(filtros.dias) || filtros.dias < 1 || filtros.dias > 36500)) throw new Error('Dias deve ser um inteiro entre 1 e 36500.')
+  return pesquisarCards(busca).filter(c => {
+    if (filtros.arquivados === false && c.arquivado_em) return false
+    if (filtros.projeto && (filtros.projeto === '__sem__' ? !!c.projeto : c.projeto !== filtros.projeto)) return false
+    if (filtros.tag && !c.tags.some(t => t.id === filtros.tag || t.nome === filtros.tag)) return false
+    if (filtros.autor && c.autor !== filtros.autor) return false
+    if (filtros.coluna && c.coluna !== filtros.coluna && c.coluna_id !== filtros.coluna) return false
+    if (filtros.depende && c.coluna !== 'Revisão') return false
+    if (filtros.lembrete && (!c.lembrete_em || c.lembrete_feito_em)) return false
+    if (filtros.repetida && !c.repeticao_id) return false
+    const data = filtros.periodo === 'criado' ? c.criado_em : c.atualizado_em
+    if (filtros.dias && Date.parse(data.replace(' ', 'T') + 'Z') < Date.now() - filtros.dias * 86400000) return false
+    return true
+  })
+}
 export function criarTag(nome: string, autor: string, cor?: string): Tag {
   nome = nome.trim()
   if (!nome || nome.length > 60) throw new Error('Tag deve ter entre 1 e 60 caracteres.')
@@ -81,7 +107,7 @@ export function pesquisarCards(busca = '') {
     if (encontrado === undefined) return []
     const inicio = encontrado.toLocaleLowerCase('pt-BR').indexOf(termo)
     const trecho = encontrado.slice(Math.max(0, inicio - 65), inicio + termo.length + 100)
-    return [{ ...enriquecer(card), trecho }]
+    return [{ ...enriquecer(card), coluna: card.coluna, trecho }]
   })
 }
 

@@ -11,6 +11,11 @@ export type Card = {
   revisao: number
   acao_id?: string
   tags: Tag[]
+  autor: string | null
+  lembrete_em: string | null
+  lembrete_nota: string | null
+  lembrete_feito_em: string | null
+  repeticao_id: string | null
 }
 export type Tag = { id: string; nome: string; cor: string }
 
@@ -45,6 +50,7 @@ async function req<T>(caminho: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  filtrar: (filtros: Record<string, string>) => req<Card[]>(`/cards?${new URLSearchParams({ ...filtros, arquivados: 'false' })}`),
   tags: () => req<Tag[]>('/tags'),
   criarTag: (nome: string) => req<Tag>('/tags', { method: 'POST', body: JSON.stringify({ nome }) }),
   renomearTag: (id: string, nome: string) => req(`/tags/${id}`, { method: 'PATCH', body: JSON.stringify({ nome }) }),

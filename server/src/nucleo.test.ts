@@ -6,6 +6,7 @@ process.env.BOARD_DB = dbPath
 const { db, semear } = await import('./db.js')
 const { pesquisarCards } = await import('./nucleo.js')
 const { criarTag, alterarTag, definirTags, listarTags } = await import('./nucleo.js')
+const { filtrarCards } = await import('./nucleo.js')
 const { criarCard, moverCard, comentar, atividade, listarColunas, quadroPadrao, atualizarCard, obterCard, quadroCompleto, listarArquivados, arquivarCard, desfazerAcao } = await import('./nucleo.js')
 
 type Coluna = { nome: string; id: string }
@@ -130,6 +131,23 @@ describe('Arquivamento e desfazer com concorrência', () => {
 })
 
 afterAll(() => db.close())
+
+describe('Filtros combinados', () => {
+  it('combina projeto, autor de criação, tag, coluna, revisão e período', () => {
+    const t = criarTag('Filtro', 'codex')
+    const c = criarCard({ titulo: 'Filtros', projeto: 'filtro-teste', coluna: 'Revisão', tags: [t.id], autor: 'lucas' })
+    comentar(c.id, 'astra', 'Não troca autor de criação')
+    expect(filtrarCards('', { projeto: 'filtro-teste', autor: 'lucas', tag: t.id, depende: true, coluna: 'Revisão', dias: 1 }).map(a => a.id)).toEqual([c.id])
+    expect(filtrarCards('', { projeto: 'filtro-teste', autor: 'astra' })).toHaveLength(0)
+    expect(filtrarCards('', { projeto: 'filtro-teste', lembrete: true })).toHaveLength(0)
+    expect(filtrarCards('', { projeto: 'filtro-teste', repetida: true })).toHaveLength(0)
+    db.prepare("UPDATE cards SET criado_em = '2020-01-01 00:00:00' WHERE id = ?").run(c.id)
+    expect(filtrarCards('', { projeto: 'filtro-teste', dias: 1, periodo: 'criado' })).toHaveLength(0)
+    arquivarCard(c.id, 'codex')
+    expect(filtrarCards('', { projeto: 'filtro-teste', arquivados: false })).toHaveLength(0)
+    expect(() => filtrarCards('', { dias: -1 })).toThrow('Dias')
+  })
+})
 
 describe('Tags', () => {
   it('cria com tags, pesquisa, renomeia mantendo cor e registra remoção', () => {
