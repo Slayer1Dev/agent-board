@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 
 const dbPath = ':memory:'
 process.env.BOARD_DB = dbPath
+const pastaTeste = mkdtempSync(join(process.cwd(), '.teste-wallpapers-'))
+process.env.BOARD_DADOS = pastaTeste
 
 const { db, semear } = await import('./db.js')
 const { pesquisarCards } = await import('./nucleo.js')
@@ -10,6 +14,7 @@ const { filtrarCards } = await import('./nucleo.js')
 const { listarProjetos, atualizarProjeto } = await import('./nucleo.js')
 const { definirLembrete, agirLembrete, listarLembretes, estadoLembrete } = await import('./nucleo.js')
 const { definirRepeticao, agirRepeticao, proximoPeriodo } = await import('./nucleo.js')
+const { validarWallpaper, salvarWallpaper, obterWallpaper, listarWallpapers, escolherWallpaper, aparenciaCompartilhada, apagarWallpaper } = await import('./nucleo.js')
 const { criarCard, moverCard, comentar, atividade, listarColunas, quadroPadrao, atualizarCard, obterCard, quadroCompleto, listarArquivados, arquivarCard, desfazerAcao } = await import('./nucleo.js')
 
 type Coluna = { nome: string; id: string }
@@ -25,7 +30,7 @@ describe('Núcleo', () => {
   it('deve criar card numa coluna indicada pelo nome ("A fazer")', () => {
     const card = criarCard({ titulo: 'Test Card', coluna: 'A fazer', autor: 'test' })
     expect(card.titulo).toBe('Test Card')
-    
+
     const q = quadroPadrao()
     const colunas = listarColunas(q.id) as Coluna[]
     const colunaAFazer = colunas.find((c) => c.nome === 'A fazer')
@@ -41,10 +46,10 @@ describe('Núcleo', () => {
   it('deve registrar evento com o autor correto ao mover card entre colunas', () => {
     const card = criarCard({ titulo: 'Mover Test', coluna: 'A fazer', autor: 'autor1' })
     moverCard(card.id, { coluna: 'Em andamento' }, 'autor2')
-    
+
     const eventos = atividade(10) as Evento[]
     const moveEvent = eventos.find((e) => e.acao === 'moveu' && e.card_titulo === 'Mover Test')
-    
+
     expect(moveEvent).toBeDefined()
     expect(moveEvent?.autor).toBe('autor2')
     expect(moveEvent?.detalhe).toBe('para Em andamento')
@@ -59,10 +64,10 @@ describe('Núcleo', () => {
   it('atividade() retorna eventos do mais recente para o mais antigo', () => {
     criarCard({ titulo: 'Card 1', autor: 'autor1' })
     criarCard({ titulo: 'Card 2', autor: 'autor2' })
-    
+
     const eventos = atividade(10) as Evento[]
     const datas = eventos.map((e) => new Date(e.criado_em).getTime())
-    
+
     for (let i = 0; i < datas.length - 1; i++) {
       expect(datas[i]).toBeGreaterThanOrEqual(datas[i+1])
     }
@@ -133,7 +138,37 @@ describe('Arquivamento e desfazer com concorrência', () => {
   })
 })
 
-afterAll(() => db.close())
+afterAll(() => { db.close(); rmSync(pastaTeste, { recursive: true, force: true }) })
+
+describe('Wallpapers', () => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAE0lEQVR4nGP8//8/AwMDEwMYAAAkBgMBXaJOiAAAAABJRU5ErkJggg==', 'base64')
+  const jpg = Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAACAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigD//2Q==', 'base64')
+  const webp = Buffer.from('UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoCAAIAAUAmJaQAA3AA/vz0AAA=', 'base64')
+  it('valida os três formatos reais e recusa SVG, tamanho, assinatura falsa e truncamento', () => {
+    expect(validarWallpaper(png).tipo).toBe('image/png')
+    expect(validarWallpaper(jpg).tipo).toBe('image/jpeg')
+    expect(validarWallpaper(webp).tipo).toBe('image/webp')
+    for (const invalido of [Buffer.from('<svg><script>malicioso()</script></svg>'), Buffer.alloc(8 * 1024 * 1024 + 1), png.subarray(0, 33), jpg.subarray(0, 30), webp.subarray(0, 30), Buffer.concat([png, Buffer.from('<script>')])]) expect(() => validarWallpaper(invalido)).toThrow()
+    const corrompido = Buffer.from(png); corrompido[45] ^= 1
+    expect(() => validarWallpaper(corrompido)).toThrow()
+  })
+  it('salva com nome gerado, compartilha seleção, impede traversal e apaga com autoria', () => {
+    const antes = pesquisarCards().length
+    const w = salvarWallpaper(png, 'codex')
+    expect(w.arquivo).toMatch(/^[a-f0-9-]+\.png$/)
+    expect(obterWallpaper(w.id).bytes).toEqual(png)
+    escolherWallpaper(w.id, 'lucas')
+    expect(aparenciaCompartilhada().wallpaper).toBe(w.id)
+    expect(listarWallpapers().some(a => a.id === w.id)).toBe(true)
+    expect(() => obterWallpaper('../../board.db')).toThrow()
+    expect(() => escolherWallpaper('ausente', 'codex')).toThrow()
+    apagarWallpaper(w.id, 'astra')
+    expect(aparenciaCompartilhada().wallpaper).toBeNull()
+    expect(listarWallpapers().some(a => a.id === w.id)).toBe(false)
+    expect(atividade(10)).toEqual(expect.arrayContaining([expect.objectContaining({ autor: 'astra', acao: 'apagou wallpaper' })]))
+    expect(pesquisarCards()).toHaveLength(antes)
+  })
+})
 
 describe('Repetição', () => {
   it('gera uma vez, copia conteúdo e tags, pausa a série e preserva proveniência', () => {

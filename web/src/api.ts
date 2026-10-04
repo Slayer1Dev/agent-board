@@ -21,6 +21,7 @@ export type Card = {
 }
 export type RegraRepeticao = { frequencia: 'diaria' | 'semanal' | 'mensal'; dias?: number[]; dia?: number }
 export type Tag = { id: string; nome: string; cor: string }
+export type Wallpaper = { id: string; url: string; criado_em: string; autor: string }
 export type ProjetoResumo = { nome: string; cor: string; favorito: boolean; oculto: boolean; ultima_atividade: string | null; colunas: { nome: string; total: number }[] }
 
 export type Coluna = { id: string; nome: string; posicao: number; cards: Card[] }
@@ -54,6 +55,16 @@ async function req<T>(caminho: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  imagemWallpaper: async (id: string) => {
+    const r = await fetch(`${BASE}/wallpapers/${id}/arquivo`, { headers: CHAVE ? { Authorization: `Bearer ${CHAVE}` } : {} })
+    if (!r.ok) throw new Error('Não foi possível carregar o wallpaper.')
+    return URL.createObjectURL(await r.blob())
+  },
+  wallpapers: () => req<Wallpaper[]>('/wallpapers'),
+  enviarWallpaper: (arquivo: File) => req<Wallpaper>('/wallpapers', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: arquivo }),
+  apagarWallpaper: (id: string) => req(`/wallpapers/${id}`, { method: 'DELETE' }),
+  aparencia: () => req<{ wallpaper: string | null; url: string }>('/aparencia'),
+  escolherWallpaper: (wallpaper: string | null) => req<{ wallpaper: string | null; url: string }>('/aparencia', { method: 'PUT', body: JSON.stringify({ wallpaper }) }),
   definirRepeticao: (id: string, regra: RegraRepeticao, revisao: number) => req<Card>(`/cards/${id}/repeticao`, { method: 'PUT', body: JSON.stringify({ regra, revisao }) }),
   agirRepeticao: (id: string, estado: string, revisao: number) => req<Card>(`/cards/${id}/repeticao`, { method: 'POST', body: JSON.stringify({ estado, revisao }) }),
   lembretes: () => req<Card[]>('/lembretes'),

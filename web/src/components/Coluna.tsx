@@ -51,7 +51,7 @@ export function Coluna({ coluna, total, filtrado, autores, arrastando, aoArrasta
       </header>
 
       {coluna.cards.length === 0 && (
-        <p className="coluna__vazia">{sobre ? 'Soltar aqui' : filtrado ? 'Nenhum card deste projeto aqui.' : 'Nenhum card nesta etapa.'}</p>
+        <p className="coluna__vazia">{sobre ? 'Soltar aqui' : filtrado ? 'Nenhum card corresponde aos filtros nesta etapa.' : 'Nenhum card nesta etapa.'}</p>
       )}
 
       <ul className="coluna__lista" hidden={coluna.cards.length === 0}>

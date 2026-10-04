@@ -5,6 +5,7 @@ import { dirname } from 'node:path'
 import { homedir } from 'node:os'
 
 const CAMINHO = process.env.BOARD_DB ?? `${homedir()}/.agent-board/board.db`
+export const PASTA_DADOS = process.env.BOARD_DADOS ?? dirname(CAMINHO)
 
 mkdirSync(dirname(CAMINHO), { recursive: true })
 
@@ -74,6 +75,13 @@ db.exec(`CREATE TABLE IF NOT EXISTS acoes_reversiveis (
 CREATE INDEX IF NOT EXISTS idx_acoes_card ON acoes_reversiveis(card_id);`)
 
 export const uid = () => randomUUID()
+db.exec(`CREATE TABLE IF NOT EXISTS wallpapers (
+  id TEXT PRIMARY KEY, arquivo TEXT NOT NULL UNIQUE, tipo TEXT NOT NULL,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now')), autor TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS preferencias (
+  chave TEXT PRIMARY KEY, valor TEXT NOT NULL
+);`)
 db.exec(`CREATE TABLE IF NOT EXISTS repeticoes (
   id TEXT PRIMARY KEY, regra TEXT NOT NULL, estado TEXT NOT NULL DEFAULT 'ativa'
 );

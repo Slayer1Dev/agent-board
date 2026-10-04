@@ -27,10 +27,15 @@ export default function App() {
   const [arquivadosAbertos, setArquivadosAbertos] = useState(false)
 
   const [preferencias, setPreferencias] = useState(lerPreferencias)
+  const wallpaperId = useRef<string | null | undefined>(undefined)
+  const wallpaperUrl = useRef('')
+  const wallpaperLegado = useRef(lerPreferencias().wallpaper)
   const [personalizando, setPersonalizando] = useState(false)
   const [erroPreferencia, setErroPreferencia] = useState('')
   useEffect(() => { document.documentElement.dataset.tema = preferencias.tema }, [preferencias.tema])
   function mudarAparencia(valor: Preferencias) {
+    if (valor.wallpaper !== wallpaperUrl.current && wallpaperUrl.current) URL.revokeObjectURL(wallpaperUrl.current)
+    wallpaperUrl.current = valor.wallpaper
     setPreferencias(valor)
     try { salvarPreferencias(valor); setErroPreferencia('') }
     catch { setErroPreferencia('A aparência foi aplicada, mas não pôde ser salva neste navegador. Tente remover o wallpaper ou liberar espaço.') }
@@ -90,7 +95,20 @@ export default function App() {
 
   const carregar = useCallback(async () => {
     try {
-      const [q, a] = await Promise.all([api.quadro(), api.atividade(30)])
+      const [q, a, aparencia] = await Promise.all([api.quadro(), api.atividade(30), api.aparencia()])
+      if (!aparencia.wallpaper && wallpaperLegado.current.startsWith('data:image/')) {
+        const legado = wallpaperLegado.current
+        wallpaperLegado.current = ''
+        const imagem = await (await fetch(legado)).blob()
+        const salvo = await api.enviarWallpaper(new File([imagem], 'wallpaper-legado', { type: imagem.type }))
+        Object.assign(aparencia, await api.escolherWallpaper(salvo.id))
+      }
+      if (wallpaperId.current !== aparencia.wallpaper) {
+        const url = aparencia.wallpaper ? await api.imagemWallpaper(aparencia.wallpaper) : ''
+        if (wallpaperUrl.current) URL.revokeObjectURL(wallpaperUrl.current)
+        wallpaperId.current = aparencia.wallpaper; wallpaperUrl.current = url
+        setPreferencias(p => ({ ...p, wallpaper: url }))
+      }
       const nova = JSON.stringify([q, a])
       if (nova !== assinatura.current) {
         assinatura.current = nova

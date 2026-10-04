@@ -1,4 +1,7 @@
-import { db, uid, registrar, proximaPosicao } from './db.js'
+import { db, uid, registrar, proximaPosicao, PASTA_DADOS } from './db.js'
+import { mkdirSync, writeFileSync, unlinkSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { inflateSync } from 'node:zlib'
 
 export type Card = {
   id: string
@@ -68,13 +71,14 @@ export function definirRepeticao(id: string, regra: RegraRepeticao, autor: strin
     db.prepare("INSERT INTO repeticoes (id, regra) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET regra = excluded.regra").run(serie, JSON.stringify(regra))
     db.prepare('INSERT OR IGNORE INTO ocorrencias (repeticao_id, periodo, card_id) VALUES (?, ?, ?)').run(serie, diaLocal(new Date()), id)
     db.prepare('UPDATE cards SET repeticao_id = ? WHERE id = ?').run(serie, id)
-    invalidarSerie(serie)
-    registrar(id, autor, 'definiu repetição', JSON.stringify(regra))
+    invalidarSerie(serie, autor, 'definiu repetição', JSON.stringify(regra))
     return exigirCard(id)
   })()
 }
-function invalidarSerie(serie: string) {
+function invalidarSerie(serie: string, autor: string, acao: string, detalhe: string) {
   db.prepare("UPDATE cards SET revisao = revisao + 1, atualizado_em = datetime('now') WHERE repeticao_id = ?").run(serie)
+  const cards = db.prepare('SELECT id FROM cards WHERE repeticao_id = ?').all(serie) as { id: string }[]
+  for (const card of cards) registrar(card.id, autor, acao, detalhe)
 }
 export function agirRepeticao(id: string, estado: 'ativa' | 'pausada' | 'encerrada', autor: string, revisao?: number): Card {
   return db.transaction(() => {
@@ -83,8 +87,7 @@ export function agirRepeticao(id: string, estado: 'ativa' | 'pausada' | 'encerra
     if (!['ativa', 'pausada', 'encerrada'].includes(estado)) throw new Error('Estado inválido.')
     if (c.repeticao.estado === 'encerrada') throw new Error('Repetição já encerrada.')
     db.prepare('UPDATE repeticoes SET estado = ? WHERE id = ?').run(estado, c.repeticao_id)
-    invalidarSerie(c.repeticao_id)
-    registrar(id, autor, 'alterou repetição', estado)
+    invalidarSerie(c.repeticao_id, autor, 'alterou repetição', estado)
     return exigirCard(id)
   })()
 }
@@ -193,6 +196,7 @@ export function definirTags(id: string, tags: string[], autor: string, revisao?:
     const atual = exigirCard(id, revisao)
     const ids = [...new Set(tags)]
     if (ids.some(t => !db.prepare('SELECT 1 FROM tags WHERE id = ?').get(t))) throw new Error('Tag não encontrada.')
+    if (ids.length === atual.tags.length && ids.every(t => atual.tags.some(a => a.id === t))) return atual
     for (const t of atual.tags.filter(t => !ids.includes(t.id))) {
       db.prepare('DELETE FROM card_tags WHERE card_id = ? AND tag_id = ?').run(id, t.id)
       registrar(id, autor, 'removeu tag', t.nome)
@@ -208,6 +212,121 @@ export function definirTags(id: string, tags: string[], autor: string, revisao?:
 
 export type Coluna = { id: string; quadro_id: string; nome: string; posicao: number }
 export type Quadro = { id: string; nome: string; criado_em: string }
+
+function dimensoes(largura: number, altura: number) {
+  if (!largura || !altura || largura * altura > 16000000 || largura > 8192 || altura > 8192) throw new Error('Imagem deve ter até 16 milhões de pixels e 8192 px por lado.')
+}
+export function validarWallpaper(bytes: Buffer): { extensao: string; tipo: string } {
+  if (!bytes.length || bytes.length > 8 * 1024 * 1024) throw new Error('Wallpaper deve ter até 8 MB.')
+  if (bytes.length >= 33 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+    let pos = 8, cabecalho = false, fim = false
+    const dados: Buffer[] = []
+    while (pos + 12 <= bytes.length) {
+      const tamanho = bytes.readUInt32BE(pos), tipo = bytes.toString('ascii', pos + 4, pos + 8)
+      if (pos + tamanho + 12 > bytes.length) throw new Error('PNG truncado.')
+      let crc = 0xffffffff
+      for (const b of bytes.subarray(pos + 4, pos + 8 + tamanho)) {
+        crc ^= b
+        for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0)
+      }
+      if (((crc ^ 0xffffffff) >>> 0) !== bytes.readUInt32BE(pos + 8 + tamanho)) throw new Error('PNG corrompido.')
+      if (tipo === 'IHDR') {
+        if (pos !== 8 || tamanho !== 13) throw new Error('Cabeçalho PNG inválido.')
+        dimensoes(bytes.readUInt32BE(pos + 8), bytes.readUInt32BE(pos + 12))
+        cabecalho = true
+      }
+      if (tipo === 'IDAT') dados.push(bytes.subarray(pos + 8, pos + 8 + tamanho))
+      pos += tamanho + 12
+      if (tipo === 'IEND') { fim = tamanho === 0 && pos === bytes.length; break }
+    }
+    if (!cabecalho || !fim || !dados.length) throw new Error('PNG incompleto.')
+    inflateSync(Buffer.concat(dados), { maxOutputLength: 160000000 })
+    return { extensao: 'png', tipo: 'image/png' }
+  }
+  if (bytes.length > 10 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9) {
+    let pos = 2, quadro = false, imagem = false
+    while (pos + 4 < bytes.length) {
+      if (bytes[pos++] !== 0xff) throw new Error('JPG inválido.')
+      while (bytes[pos] === 0xff) pos++
+      const marcador = bytes[pos++]
+      const tamanho = bytes.readUInt16BE(pos)
+      if (tamanho < 2 || pos + tamanho > bytes.length) throw new Error('JPG truncado.')
+      if ([0xc0, 0xc1, 0xc2].includes(marcador)) {
+        if (tamanho < 8) throw new Error('Cabeçalho JPG inválido.')
+        dimensoes(bytes.readUInt16BE(pos + 5), bytes.readUInt16BE(pos + 3)); quadro = true
+      }
+      if (marcador === 0xda) { imagem = true; break }
+      pos += tamanho
+    }
+    if (!quadro || !imagem) throw new Error('JPG sem imagem.')
+    return { extensao: 'jpg', tipo: 'image/jpeg' }
+  }
+  if (bytes.length >= 30 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP' && bytes.readUInt32LE(4) + 8 === bytes.length) {
+    let pos = 12, imagem = false
+    while (pos + 8 <= bytes.length) {
+      const tipo = bytes.toString('ascii', pos, pos + 4), tamanho = bytes.readUInt32LE(pos + 4), p = pos + 8
+      if (p + tamanho > bytes.length) throw new Error('WebP truncado.')
+      if (tipo === 'VP8 ' && tamanho >= 10 && bytes.subarray(p + 3, p + 6).equals(Buffer.from([157, 1, 42]))) {
+        dimensoes(bytes.readUInt16LE(p + 6) & 0x3fff, bytes.readUInt16LE(p + 8) & 0x3fff); imagem = true
+      }
+      if (tipo === 'VP8L' && tamanho >= 5 && bytes[p] === 0x2f) {
+        const bits = bytes.readUInt32LE(p + 1)
+        dimensoes((bits & 0x3fff) + 1, ((bits >>> 14) & 0x3fff) + 1); imagem = true
+      }
+      pos = p + tamanho + (tamanho % 2)
+    }
+    if (!imagem || pos !== bytes.length) throw new Error('WebP inválido ou animado não suportado.')
+    return { extensao: 'webp', tipo: 'image/webp' }
+  }
+  throw new Error('Conteúdo inválido. Aceitos apenas PNG, JPG e WebP; SVG não é permitido.')
+}
+type Wallpaper = { id: string; arquivo: string; tipo: string; criado_em: string; autor: string }
+function pastaWallpapers() { return join(PASTA_DADOS, 'wallpapers') }
+export function listarWallpapers() {
+  return (db.prepare('SELECT * FROM wallpapers ORDER BY criado_em DESC, rowid DESC').all() as Wallpaper[]).map(w => ({ ...w, url: `/api/wallpapers/${w.id}/arquivo` }))
+}
+export function obterWallpaper(id: string) {
+  const w = db.prepare('SELECT * FROM wallpapers WHERE id = ?').get(id) as Wallpaper | undefined
+  if (!w) throw new Error('Wallpaper não encontrado.')
+  return { bytes: readFileSync(join(pastaWallpapers(), w.arquivo)), tipo: w.tipo }
+}
+export function salvarWallpaper(bytes: Buffer, autor: string) {
+  const formato = validarWallpaper(bytes), id = uid(), arquivo = `${id}.${formato.extensao}`
+  mkdirSync(pastaWallpapers(), { recursive: true })
+  const caminho = join(pastaWallpapers(), arquivo)
+  writeFileSync(caminho, bytes, { flag: 'wx' })
+  try {
+    return db.transaction(() => {
+      db.prepare('INSERT INTO wallpapers (id, arquivo, tipo, autor) VALUES (?, ?, ?, ?)').run(id, arquivo, formato.tipo, autor)
+      registrar(null, autor, 'enviou wallpaper', id)
+      return listarWallpapers().find(w => w.id === id)!
+    })()
+  } catch (e) { unlinkSync(caminho); throw e }
+}
+export function aparenciaCompartilhada() {
+  const p = db.prepare("SELECT valor FROM preferencias WHERE chave = 'wallpaper'").get() as { valor: string } | undefined
+  const wallpaper = p?.valor || null
+  return { wallpaper, url: wallpaper ? `/api/wallpapers/${wallpaper}/arquivo` : '' }
+}
+export function escolherWallpaper(id: string | null, autor: string) {
+  return db.transaction(() => {
+    if (id && !db.prepare('SELECT 1 FROM wallpapers WHERE id = ?').get(id)) throw new Error('Wallpaper não encontrado.')
+    db.prepare("INSERT INTO preferencias (chave, valor) VALUES ('wallpaper', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor").run(id ?? '')
+    registrar(null, autor, 'escolheu wallpaper', id ?? 'Sem wallpaper')
+    return aparenciaCompartilhada()
+  })()
+}
+export function apagarWallpaper(id: string, autor: string) {
+  obterWallpaper(id)
+  return db.transaction(() => {
+    if (aparenciaCompartilhada().wallpaper === id) escolherWallpaper(null, autor)
+    const w = listarWallpapers().find(w => w.id === id)!
+    unlinkSync(join(pastaWallpapers(), w.arquivo))
+    db.prepare('DELETE FROM wallpapers WHERE id = ?').run(id)
+    registrar(null, autor, 'apagou wallpaper', id)
+    return { ok: true }
+  })()
+}
 
 export type Projeto = { nome: string; cor: string; favorito: boolean; oculto: boolean; ultima_atividade: string | null; colunas: { nome: string; total: number }[] }
 export function listarProjetos(ordem: 'atividade' | 'nome' = 'atividade', incluirOcultos = false): Projeto[] {
@@ -495,7 +614,7 @@ export function comentar(id: string, autor: string, texto: string) {
   })()
 }
 export function listarArquivados(): Card[] {
-  return db.prepare('SELECT * FROM cards WHERE arquivado_em IS NOT NULL ORDER BY arquivado_em DESC, id').all() as Card[]
+  return db.prepare('SELECT * FROM cards WHERE arquivado_em IS NOT NULL ORDER BY arquivado_em DESC, id').all().map(c => enriquecer(c as Card))
 }
 export function arquivarCard(id: string, autor: string, restaurar = false, revisao?: number): Card {
   return alterar(id, autor, restaurar ? 'restauração' : 'arquivamento', () => {

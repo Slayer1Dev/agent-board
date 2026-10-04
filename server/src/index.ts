@@ -23,6 +23,7 @@ import {
   listarProjetos, atualizarProjeto,
   listarLembretes, definirLembrete, agirLembrete,
   definirRepeticao, agirRepeticao,
+  listarWallpapers, obterWallpaper, salvarWallpaper, apagarWallpaper, aparenciaCompartilhada, escolherWallpaper,
 } from './nucleo.js'
 
 const PORTA = Number(process.env.BOARD_PORT ?? 8078)
@@ -32,7 +33,7 @@ const CHAVE = process.env.BOARD_API_KEY ?? ''
 semear()
 
 const app = express()
-app.use(express.json({ limit: '1mb' }))
+app.use(express.json({ limit: '12mb' }))
 app.use(cors())
 
 /**
@@ -66,6 +67,15 @@ api.get('/cards', (req, res) => res.json(filtrarCards(String(req.query.busca ?? 
   dias: req.query.dias === undefined ? undefined : Number(req.query.dias), periodo: req.query.periodo === 'criado' ? 'criado' : 'alterado', arquivados: req.query.arquivados !== 'false',
 })))
 api.get('/tags', (_req, res) => res.json(listarTags()))
+api.get('/wallpapers', (_req, res) => res.json(listarWallpapers()))
+api.post('/wallpapers', express.raw({ type: '*/*', limit: '8mb' }), (req, res) => {
+  if (!Buffer.isBuffer(req.body)) throw new Error('Envie os bytes da imagem no corpo da requisição.')
+  res.status(201).json(salvarWallpaper(req.body, autor(req)))
+})
+api.get('/wallpapers/:id/arquivo', (req, res) => { const w = obterWallpaper(req.params.id); res.set('X-Content-Type-Options', 'nosniff').type(w.tipo).send(w.bytes) })
+api.delete('/wallpapers/:id', (req, res) => res.json(apagarWallpaper(req.params.id, autor(req))))
+api.get('/aparencia', (_req, res) => res.json(aparenciaCompartilhada()))
+api.put('/aparencia', (req, res) => res.json(escolherWallpaper(req.body.wallpaper ?? null, autor(req))))
 api.get('/lembretes', (_req, res) => res.json(listarLembretes()))
 api.put('/cards/:id/repeticao', (req, res) => res.json(definirRepeticao(req.params.id, req.body.regra, autor(req), req.body.revisao)))
 api.post('/cards/:id/repeticao', (req, res) => res.json(agirRepeticao(req.params.id, req.body.estado, autor(req), req.body.revisao)))

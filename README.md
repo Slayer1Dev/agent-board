@@ -92,3 +92,14 @@ codex mcp add agent-board --url http://SEU_HOST:8078/mcp \
 ## Licença
 
 [MIT](LICENSE)
+
+## Evolução de 04/10/2026: busca e organização
+
+Contratos, exemplos de todas as novas rotas REST e ferramentas MCP e retorno à branch anterior estão em [NOVAS_APIS.md](NOVAS_APIS.md).
+
+- Busca global (Ctrl+K) em títulos, descrições, projetos, comentários e tags, incluindo arquivados com trechos destacados.
+- Tags com cores, filtros combinados e visão na URL; projetos com contagens, última atividade, favoritos e ocultação.
+- Lembretes no fuso de São Paulo, conclusão/adiamento e consulta para as sessões de IA. Repetição diária/semanal/mensal com geração transacional e prevenção de duplicatas persistida no SQLite.
+- Wallpapers em pasta ao lado do banco, galeria e seleção compartilhadas; upload PNG/JPG/WebP validado por conteúdo, até 8 MB. Temas claro, escuro e glass com superfícies de leitura e foco visível.
+
+Verificação adicional: `cd server && node verificar-integracao.mjs` usa banco e arquivos descartáveis dentro do repositório e testa REST, MCP e persistência entre processos.

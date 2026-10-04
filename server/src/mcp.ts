@@ -18,6 +18,7 @@ import {
   listarProjetos, atualizarProjeto,
   listarLembretes, definirLembrete, agirLembrete,
   definirRepeticao, agirRepeticao,
+  listarWallpapers, obterWallpaper, salvarWallpaper, apagarWallpaper, aparenciaCompartilhada, escolherWallpaper,
 } from './nucleo.js'
 
 const texto = (valor: unknown) => ({
@@ -40,6 +41,12 @@ const AUTOR = z
 
 export function criarServidorMcp() {
   const s = new McpServer({ name: 'agent-board', version: '0.1.0' })
+  s.registerTool('listar_wallpapers', { inputSchema: {} }, async () => texto(listarWallpapers()))
+  s.registerTool('obter_wallpaper', { inputSchema: { id: z.string() } }, async ({ id }) => { try { const w = obterWallpaper(id); return texto({ tipo: w.tipo, base64: w.bytes.toString('base64') }) } catch (e) { return erro(e) } })
+  s.registerTool('enviar_wallpaper', { inputSchema: { base64: z.string().max(12 * 1024 * 1024), autor: AUTOR } }, async ({ base64, autor }) => { try { return texto(salvarWallpaper(Buffer.from(base64, 'base64'), autor)) } catch (e) { return erro(e) } })
+  s.registerTool('apagar_wallpaper', { inputSchema: { id: z.string(), autor: AUTOR } }, async ({ id, autor }) => { try { return texto(apagarWallpaper(id, autor)) } catch (e) { return erro(e) } })
+  s.registerTool('ver_aparencia', { inputSchema: {} }, async () => texto(aparenciaCompartilhada()))
+  s.registerTool('escolher_wallpaper', { inputSchema: { id: z.string().nullable(), autor: AUTOR } }, async ({ id, autor }) => { try { return texto(escolherWallpaper(id, autor)) } catch (e) { return erro(e) } })
   s.registerTool('definir_repeticao', { inputSchema: { id: z.string(), regra: z.object({ frequencia: z.enum(['diaria', 'semanal', 'mensal']), dias: z.array(z.number().int()).optional(), dia: z.number().int().optional() }), autor: AUTOR } }, async ({ id, regra, autor }) => { try { return texto(definirRepeticao(id, regra, autor)) } catch (e) { return erro(e) } })
   s.registerTool('agir_repeticao', { inputSchema: { id: z.string(), estado: z.enum(['ativa', 'pausada', 'encerrada']), autor: AUTOR } }, async ({ id, estado, autor }) => { try { return texto(agirRepeticao(id, estado, autor)) } catch (e) { return erro(e) } })
   s.registerTool('lembretes_pendentes', { description: 'Lembretes vencidos e de hoje em São Paulo. Consultar no início da sessão.', inputSchema: {} }, async () => texto(listarLembretes()))

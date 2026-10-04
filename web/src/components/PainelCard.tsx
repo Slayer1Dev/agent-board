@@ -100,13 +100,10 @@ export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
             {card.arquivado_em && <p className="painel__dica">Este card está arquivado. O histórico foi preservado.</p>}
             <div className="painel__meta"><Projeto nome={projetoDoCard(card)} /><Autor nome={autorCriacao(card.eventos)} /><span className="painel__dica">Criado em <DataHora valor={card.criado_em} /></span></div>
 
-            <label className="rotulo" htmlFor="desc">
-              <span className="so-leitor">Contexto</span>
-              Descrição
-            </label>
             <Tags card={card} aoMudar={async () => { setCard(await api.card(id)); aoMudar() }} />
             <Lembrete key={`${id}-${card.revisao}`} card={card} aoMudar={async () => { setCard(await api.card(id)); aoMudar() }} />
             <Repeticao key={`rep-${id}-${card.revisao}`} card={card} aoMudar={async () => { setCard(await api.card(id)); aoMudar() }} />
+            <label className="rotulo" htmlFor="desc">Descrição</label>
             <textarea
               id="desc"
               className="painel__desc"
