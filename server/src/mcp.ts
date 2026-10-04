@@ -13,6 +13,7 @@ import {
   arquivarCard,
   desfazerAcao,
   pesquisarCards,
+  listarTags, criarTag, alterarTag, definirTags,
 } from './nucleo.js'
 
 const texto = (valor: unknown) => ({
@@ -35,6 +36,10 @@ const AUTOR = z
 
 export function criarServidorMcp() {
   const s = new McpServer({ name: 'agent-board', version: '0.1.0' })
+  s.registerTool('listar_tags', { inputSchema: {} }, async () => texto(listarTags()))
+  s.registerTool('criar_tag', { inputSchema: { nome: z.string(), cor: z.string().optional(), autor: AUTOR } }, async ({ nome, cor, autor }) => { try { return texto(criarTag(nome, autor, cor)) } catch (e) { return erro(e) } })
+  s.registerTool('alterar_tag', { inputSchema: { id: z.string(), nome: z.string().optional(), apagar: z.boolean().optional(), autor: AUTOR } }, async ({ id, nome, apagar, autor }) => { try { return texto(alterarTag(id, autor, nome, apagar)) } catch (e) { return erro(e) } })
+  s.registerTool('definir_tags', { inputSchema: { id: z.string(), tags: z.array(z.string()), autor: AUTOR } }, async ({ id, tags, autor }) => { try { return texto(definirTags(id, tags, autor)) } catch (e) { return erro(e) } })
   s.registerTool('pesquisar_cards', {
     description: 'Pesquisa título, descrição, projeto e comentários, incluindo arquivados.',
     inputSchema: { busca: z.string().optional() },
@@ -84,12 +89,13 @@ export function criarServidorMcp() {
         coluna: z.string().optional().describe('Nome da coluna. Padrão: a primeira.'),
         descricao: z.string().optional().describe('Contexto, critério de pronto, links'),
         projeto: z.string().optional().describe('A qual projeto pertence'),
+        tags: z.array(z.string()).optional().describe('IDs das tags'),
         autor: AUTOR,
       },
     },
-    async ({ titulo, coluna, descricao, projeto, autor }) => {
+    async ({ titulo, coluna, descricao, projeto, tags, autor }) => {
       try {
-        return texto(criarCard({ titulo, coluna, descricao, projeto, autor }))
+        return texto(criarCard({ titulo, coluna, descricao, projeto, tags, autor }))
       } catch (e) {
         return erro(e)
       }

@@ -12,6 +12,60 @@ export type Card = {
   arquivado_em: string | null
   revisao: number
   acao_id?: string
+  tags: Tag[]
+}
+
+export type Tag = { id: string; nome: string; cor: string }
+export function listarTags(): Tag[] { return db.prepare('SELECT * FROM tags ORDER BY nome COLLATE NOCASE').all() as Tag[] }
+function tagsDoCard(id: string): Tag[] {
+  return db.prepare('SELECT t.* FROM tags t JOIN card_tags ct ON ct.tag_id = t.id WHERE ct.card_id = ? ORDER BY t.nome COLLATE NOCASE').all(id) as Tag[]
+}
+function enriquecer(card: Card): Card { return { ...card, tags: tagsDoCard(card.id) } }
+export function criarTag(nome: string, autor: string, cor?: string): Tag {
+  nome = nome.trim()
+  if (!nome || nome.length > 60) throw new Error('Tag deve ter entre 1 e 60 caracteres.')
+  if (cor && !/^#[0-9a-f]{6}$/i.test(cor)) throw new Error('Cor deve ser hexadecimal (#RRGGBB).')
+  const paleta = ['#a5c8ff', '#f5c698', '#b9dfba', '#dfb4ed', '#f4abb9']
+  const indice = [...nome].reduce((n, c) => n + c.charCodeAt(0), 0) % paleta.length
+  return db.transaction(() => {
+    const tag = { id: uid(), nome, cor: cor ?? paleta[indice] }
+    db.prepare('INSERT INTO tags (id, nome, cor) VALUES (?, ?, ?)').run(tag.id, tag.nome, tag.cor)
+    registrar(null, autor, 'criou tag', nome)
+    return tag
+  })()
+}
+export function alterarTag(id: string, autor: string, nome?: string, apagar = false) {
+  return db.transaction(() => {
+    const tag = db.prepare('SELECT * FROM tags WHERE id = ?').get(id) as Tag | undefined
+    if (!tag) throw new Error('Tag não encontrada.')
+    if (!apagar && (!nome?.trim() || nome.trim().length > 60)) throw new Error('Nome de tag inválido.')
+    const associados = db.prepare('SELECT card_id FROM card_tags WHERE tag_id = ?').all(id) as { card_id: string }[]
+    if (apagar) db.prepare('DELETE FROM tags WHERE id = ?').run(id)
+    else db.prepare('UPDATE tags SET nome = ? WHERE id = ?').run(nome!.trim(), id)
+    for (const c of associados) {
+      registrar(c.card_id, autor, apagar ? 'removeu tag' : 'renomeou tag', apagar ? tag.nome : `${tag.nome} → ${nome!.trim()}`)
+      db.prepare("UPDATE cards SET revisao = revisao + 1, atualizado_em = datetime('now') WHERE id = ?").run(c.card_id)
+    }
+    registrar(null, autor, apagar ? 'apagou tag' : 'renomeou tag', tag.nome)
+    return { ok: true }
+  })()
+}
+export function definirTags(id: string, tags: string[], autor: string, revisao?: number): Card {
+  return db.transaction(() => {
+    const atual = exigirCard(id, revisao)
+    const ids = [...new Set(tags)]
+    if (ids.some(t => !db.prepare('SELECT 1 FROM tags WHERE id = ?').get(t))) throw new Error('Tag não encontrada.')
+    for (const t of atual.tags.filter(t => !ids.includes(t.id))) {
+      db.prepare('DELETE FROM card_tags WHERE card_id = ? AND tag_id = ?').run(id, t.id)
+      registrar(id, autor, 'removeu tag', t.nome)
+    }
+    for (const t of ids.filter(t => !atual.tags.some(a => a.id === t))) {
+      db.prepare('INSERT INTO card_tags (card_id, tag_id) VALUES (?, ?)').run(id, t)
+      registrar(id, autor, 'adicionou tag', listarTags().find(a => a.id === t)!.nome)
+    }
+    db.prepare("UPDATE cards SET revisao = revisao + 1, atualizado_em = datetime('now') WHERE id = ?").run(id)
+    return exigirCard(id)
+  })()
 }
 
 export type Coluna = { id: string; quadro_id: string; nome: string; posicao: number }
@@ -22,12 +76,12 @@ export function pesquisarCards(busca = '') {
   const cards = db.prepare(`SELECT c.*, col.nome AS coluna FROM cards c JOIN colunas col ON col.id = c.coluna_id ORDER BY c.atualizado_em DESC, c.id`).all() as (Card & { coluna: string })[]
   return cards.flatMap(card => {
     const comentarios = db.prepare("SELECT detalhe FROM eventos WHERE card_id = ? AND acao = 'comentou' ORDER BY rowid").all(card.id) as { detalhe: string }[]
-    const campos = [card.titulo, card.descricao, card.projeto ?? '', ...comentarios.map(c => c.detalhe)]
+    const campos = [card.titulo, card.descricao, card.projeto ?? '', ...tagsDoCard(card.id).map(t => t.nome), ...comentarios.map(c => c.detalhe)]
     const encontrado = campos.find(c => c.toLocaleLowerCase('pt-BR').includes(termo))
     if (encontrado === undefined) return []
     const inicio = encontrado.toLocaleLowerCase('pt-BR').indexOf(termo)
     const trecho = encontrado.slice(Math.max(0, inicio - 65), inicio + termo.length + 100)
-    return [{ ...card, trecho }]
+    return [{ ...enriquecer(card), trecho }]
   })
 }
 
@@ -52,7 +106,7 @@ export function listarColunas(quadroId: string): Coluna[] {
 export function listarCards(colunaId: string): Card[] {
   return db
     .prepare('SELECT * FROM cards WHERE coluna_id = ? AND arquivado_em IS NULL ORDER BY posicao')
-    .all(colunaId) as Card[]
+    .all(colunaId).map(c => enriquecer(c as Card))
 }
 
 /** Quadro inteiro em uma chamada — é o que a UI e o MCP pedem com mais frequência. */
@@ -74,7 +128,7 @@ export function obterCard(id: string) {
   const eventos = db
     .prepare('SELECT autor, acao, detalhe, criado_em FROM eventos WHERE card_id = ? ORDER BY criado_em, rowid')
     .all(id)
-  return { ...card, eventos }
+  return { ...enriquecer(card), eventos }
 }
 
 function criarCardOriginal(opts: {
@@ -84,6 +138,7 @@ function criarCardOriginal(opts: {
   descricao?: string
   projeto?: string
   autor: string
+  tags?: string[]
 }): Card {
   let colunaId = opts.colunaId
 
@@ -222,7 +277,8 @@ type Acao = {
   antes: string | null; depois: string; revisao_esperada: number; desfeita_em: string | null
 }
 function lerCard(id: string) {
-  return db.prepare('SELECT * FROM cards WHERE id = ?').get(id) as Card | undefined
+  const card = db.prepare('SELECT * FROM cards WHERE id = ?').get(id) as Card | undefined
+  return card ? enriquecer(card) : undefined
 }
 function exigirCard(id: string, revisao?: number) {
   const card = lerCard(id)
@@ -244,7 +300,11 @@ function alterar(id: string | null, autor: string, tipo: string, executar: () =>
 }
 
 export function criarCard(opts: Parameters<typeof criarCardOriginal>[0]): Card {
-  return alterar(null, opts.autor, 'criação', () => criarCardOriginal(opts))
+  return alterar(null, opts.autor, 'criação', () => {
+    const card = criarCardOriginal(opts)
+    if (opts.tags) definirTags(card.id, opts.tags, opts.autor)
+    return card
+  })
 }
 export function atualizarCard(id: string, campos: Parameters<typeof atualizarCardOriginal>[1], autor: string, revisao?: number): Card {
   return alterar(id, autor, 'edição', () => {

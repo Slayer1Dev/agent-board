@@ -10,7 +10,9 @@ export type Card = {
   arquivado_em: string | null
   revisao: number
   acao_id?: string
+  tags: Tag[]
 }
+export type Tag = { id: string; nome: string; cor: string }
 
 export type Coluna = { id: string; nome: string; posicao: number; cards: Card[] }
 export type Quadro = { id: string; nome: string; colunas: Coluna[] }
@@ -43,6 +45,11 @@ async function req<T>(caminho: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  tags: () => req<Tag[]>('/tags'),
+  criarTag: (nome: string) => req<Tag>('/tags', { method: 'POST', body: JSON.stringify({ nome }) }),
+  renomearTag: (id: string, nome: string) => req(`/tags/${id}`, { method: 'PATCH', body: JSON.stringify({ nome }) }),
+  apagarTag: (id: string) => req(`/tags/${id}`, { method: 'DELETE' }),
+  definirTags: (id: string, tags: string[], revisao: number) => req<Card>(`/cards/${id}/tags`, { method: 'PUT', body: JSON.stringify({ tags, revisao }) }),
   pesquisar: (busca: string) => req<(Card & { coluna: string; trecho: string })[]>(`/cards?busca=${encodeURIComponent(busca)}`),
   quadro: () => req<Quadro>('/quadro'),
   atividade: (limite = 30) => req<Evento[]>(`/atividade?limite=${limite}`),

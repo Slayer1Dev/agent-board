@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, type Card, type Evento } from '../api'
 import { Autor, DataHora, Projeto, autorCriacao, projetoDoCard, tituloDoCard } from './Identidade'
+import { Tags } from './Tags'
 
 type Props = { id: string; aoFechar: () => void; aoMudar: () => void; aoAcao: (card: Card, nome: string) => void }
 
@@ -98,8 +99,10 @@ export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
             <div className="painel__meta"><Projeto nome={projetoDoCard(card)} /><Autor nome={autorCriacao(card.eventos)} /><span className="painel__dica">Criado em <DataHora valor={card.criado_em} /></span></div>
 
             <label className="rotulo" htmlFor="desc">
+              <span className="so-leitor">Contexto</span>
               Descrição
             </label>
+            <Tags card={card} aoMudar={async () => { setCard(await api.card(id)); aoMudar() }} />
             <textarea
               id="desc"
               className="painel__desc"

@@ -71,6 +71,8 @@ db.exec(`CREATE TABLE IF NOT EXISTS acoes_reversiveis (
 CREATE INDEX IF NOT EXISTS idx_acoes_card ON acoes_reversiveis(card_id);`)
 
 export const uid = () => randomUUID()
+db.exec(`CREATE TABLE IF NOT EXISTS tags (id TEXT PRIMARY KEY, nome TEXT NOT NULL COLLATE NOCASE UNIQUE, cor TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS card_tags (card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE, tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY(card_id, tag_id));`)
 
 /** Cria um quadro inicial na primeira execução, para o app nunca abrir vazio. */
 export function semear() {

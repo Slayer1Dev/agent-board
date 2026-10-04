@@ -74,6 +74,7 @@ export function Coluna({ coluna, total, filtrado, autores, arrastando, aoArrasta
               aria-label={`Abrir ${card.titulo}`}
             >
               <p className="card__titulo">{tituloDoCard(card)}</p>
+              {!!card.tags?.length && <div className="tags">{card.tags.map(t => <span className="tag" key={t.id} style={{ borderColor: t.cor }}>{t.nome}</span>)}</div>}
               <div className="card__rodape"><Projeto nome={projetoDoCard(card)} />{card.id in autores ? <Autor nome={autores[card.id]} /> : <span className="card__autoria-carregando">Carregando autoria…</span>}<DataHora valor={card.atualizado_em} curta /></div>
             </article>
           </li>

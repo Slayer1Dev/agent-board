@@ -5,6 +5,7 @@ process.env.BOARD_DB = dbPath
 
 const { db, semear } = await import('./db.js')
 const { pesquisarCards } = await import('./nucleo.js')
+const { criarTag, alterarTag, definirTags, listarTags } = await import('./nucleo.js')
 const { criarCard, moverCard, comentar, atividade, listarColunas, quadroPadrao, atualizarCard, obterCard, quadroCompleto, listarArquivados, arquivarCard, desfazerAcao } = await import('./nucleo.js')
 
 type Coluna = { nome: string; id: string }
@@ -129,6 +130,29 @@ describe('Arquivamento e desfazer com concorrência', () => {
 })
 
 afterAll(() => db.close())
+
+describe('Tags', () => {
+  it('cria com tags, pesquisa, renomeia mantendo cor e registra remoção', () => {
+    const t = criarTag('Urgência de teste', 'codex')
+    const c = criarCard({ titulo: 'Etiquetado', tags: [t.id, t.id], autor: 'codex' })
+    expect(obterCard(c.id)!.tags).toHaveLength(1)
+    expect(pesquisarCards('urgência de teste').some(r => r.id === c.id)).toBe(true)
+    alterarTag(t.id, 'lucas', 'Novo nome')
+    expect(listarTags().find(a => a.id === t.id)?.cor).toBe(t.cor)
+    definirTags(c.id, [], 'astra')
+    expect(obterCard(c.id)!.eventos).toEqual(expect.arrayContaining([expect.objectContaining({ autor: 'astra', acao: 'removeu tag' })]))
+    definirTags(c.id, [t.id], 'codex')
+    alterarTag(t.id, 'codex', undefined, true)
+    expect(obterCard(c.id)!.tags).toHaveLength(0)
+  })
+  it('valida IDs e reverte criação inteira quando a tag não existe', () => {
+    const antes = pesquisarCards().length
+    expect(() => criarCard({ titulo: 'Inválido', tags: ['ausente'], autor: 'codex' })).toThrow('Tag')
+    expect(pesquisarCards()).toHaveLength(antes)
+    expect(() => criarTag(' ', 'codex')).toThrow()
+    expect(() => criarTag('Cor inválida', 'codex', 'red')).toThrow()
+  })
+})
 
 describe('Pesquisa', () => {
   it('encontra título, descrição, projeto e comentário arquivado sem duplicar', () => {

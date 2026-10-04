@@ -18,6 +18,7 @@ import {
   arquivarCard,
   desfazerAcao,
   pesquisarCards,
+  listarTags, criarTag, alterarTag, definirTags,
 } from './nucleo.js'
 
 const PORTA = Number(process.env.BOARD_PORT ?? 8078)
@@ -56,6 +57,11 @@ api.get('/atividade', (req, res) => res.json(atividade(Number(req.query.limite ?
 
 api.get('/arquivados', (_req, res) => res.json(listarArquivados()))
 api.get('/cards', (req, res) => res.json(pesquisarCards(String(req.query.busca ?? ''))))
+api.get('/tags', (_req, res) => res.json(listarTags()))
+api.post('/tags', (req, res) => res.status(201).json(criarTag(req.body.nome, autor(req), req.body.cor)))
+api.patch('/tags/:id', (req, res) => res.json(alterarTag(req.params.id, autor(req), req.body.nome)))
+api.delete('/tags/:id', (req, res) => res.json(alterarTag(req.params.id, autor(req), undefined, true)))
+api.put('/cards/:id/tags', (req, res) => res.json(definirTags(req.params.id, req.body.tags, autor(req), req.body.revisao)))
 
 api.get('/cards/:id', (req, res) => {
   const c = obterCard(req.params.id)
@@ -64,9 +70,9 @@ api.get('/cards/:id', (req, res) => {
 
 api.post('/cards', (req, res) => {
   try {
-    const { titulo, coluna, colunaId, descricao, projeto } = req.body ?? {}
+    const { titulo, coluna, colunaId, descricao, projeto, tags } = req.body ?? {}
     if (!titulo?.trim()) return res.status(400).json({ erro: 'título é obrigatório' })
-    res.status(201).json(criarCard({ titulo, coluna, colunaId, descricao, projeto, autor: autor(req) }))
+    res.status(201).json(criarCard({ titulo, coluna, colunaId, descricao, projeto, tags, autor: autor(req) }))
   } catch (e) {
     res.status(400).json({ erro: (e as Error).message })
   }
@@ -129,6 +135,7 @@ api.post('/colunas', (req, res) => {
 })
 
 app.use('/api', api)
+app.use((e: Error, _req: Request, res: Response, _next: NextFunction) => { res.status(400).json({ erro: e.message }) })
 
 // ---------- MCP (consumido pelas sessões de IA) ----------
 // Stateless: cada requisição cria seu próprio transporte. Simples e sem estado
