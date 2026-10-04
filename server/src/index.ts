@@ -22,6 +22,7 @@ import {
   filtrarCards,
   listarProjetos, atualizarProjeto,
   listarLembretes, definirLembrete, agirLembrete,
+  definirRepeticao, agirRepeticao,
 } from './nucleo.js'
 
 const PORTA = Number(process.env.BOARD_PORT ?? 8078)
@@ -66,6 +67,8 @@ api.get('/cards', (req, res) => res.json(filtrarCards(String(req.query.busca ?? 
 })))
 api.get('/tags', (_req, res) => res.json(listarTags()))
 api.get('/lembretes', (_req, res) => res.json(listarLembretes()))
+api.put('/cards/:id/repeticao', (req, res) => res.json(definirRepeticao(req.params.id, req.body.regra, autor(req), req.body.revisao)))
+api.post('/cards/:id/repeticao', (req, res) => res.json(agirRepeticao(req.params.id, req.body.estado, autor(req), req.body.revisao)))
 api.put('/cards/:id/lembrete', (req, res) => res.json(definirLembrete(req.params.id, req.body.data ?? null, req.body.nota ?? '', autor(req), req.body.revisao)))
 api.post('/cards/:id/lembrete', (req, res) => res.json(agirLembrete(req.params.id, req.body.acao, autor(req), req.body.revisao)))
 api.get('/projetos', (req, res) => res.json(listarProjetos(req.query.ordem === 'nome' ? 'nome' : 'atividade', req.query.ocultos === 'true')))

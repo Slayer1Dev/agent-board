@@ -17,6 +17,7 @@ import {
   filtrarCards,
   listarProjetos, atualizarProjeto,
   listarLembretes, definirLembrete, agirLembrete,
+  definirRepeticao, agirRepeticao,
 } from './nucleo.js'
 
 const texto = (valor: unknown) => ({
@@ -39,6 +40,8 @@ const AUTOR = z
 
 export function criarServidorMcp() {
   const s = new McpServer({ name: 'agent-board', version: '0.1.0' })
+  s.registerTool('definir_repeticao', { inputSchema: { id: z.string(), regra: z.object({ frequencia: z.enum(['diaria', 'semanal', 'mensal']), dias: z.array(z.number().int()).optional(), dia: z.number().int().optional() }), autor: AUTOR } }, async ({ id, regra, autor }) => { try { return texto(definirRepeticao(id, regra, autor)) } catch (e) { return erro(e) } })
+  s.registerTool('agir_repeticao', { inputSchema: { id: z.string(), estado: z.enum(['ativa', 'pausada', 'encerrada']), autor: AUTOR } }, async ({ id, estado, autor }) => { try { return texto(agirRepeticao(id, estado, autor)) } catch (e) { return erro(e) } })
   s.registerTool('lembretes_pendentes', { description: 'Lembretes vencidos e de hoje em São Paulo. Consultar no início da sessão.', inputSchema: {} }, async () => texto(listarLembretes()))
   s.registerTool('definir_lembrete', { inputSchema: { id: z.string(), data: z.string().nullable(), nota: z.string().optional(), autor: AUTOR } }, async ({ id, data, nota, autor }) => { try { return texto(definirLembrete(id, data, nota ?? '', autor)) } catch (e) { return erro(e) } })
   s.registerTool('agir_lembrete', { inputSchema: { id: z.string(), acao: z.enum(['feito', 'hora', 'amanha', 'semana']), autor: AUTOR } }, async ({ id, acao, autor }) => { try { return texto(agirLembrete(id, acao, autor)) } catch (e) { return erro(e) } })

@@ -3,6 +3,7 @@ import { api, type Card, type Evento } from '../api'
 import { Autor, DataHora, Projeto, autorCriacao, projetoDoCard, tituloDoCard } from './Identidade'
 import { Tags } from './Tags'
 import { Lembrete } from './Lembretes'
+import { Repeticao } from './Repeticao'
 
 type Props = { id: string; aoFechar: () => void; aoMudar: () => void; aoAcao: (card: Card, nome: string) => void }
 
@@ -105,6 +106,7 @@ export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
             </label>
             <Tags card={card} aoMudar={async () => { setCard(await api.card(id)); aoMudar() }} />
             <Lembrete key={`${id}-${card.revisao}`} card={card} aoMudar={async () => { setCard(await api.card(id)); aoMudar() }} />
+            <Repeticao key={`rep-${id}-${card.revisao}`} card={card} aoMudar={async () => { setCard(await api.card(id)); aoMudar() }} />
             <textarea
               id="desc"
               className="painel__desc"

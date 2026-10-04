@@ -9,6 +9,7 @@ const { criarTag, alterarTag, definirTags, listarTags } = await import('./nucleo
 const { filtrarCards } = await import('./nucleo.js')
 const { listarProjetos, atualizarProjeto } = await import('./nucleo.js')
 const { definirLembrete, agirLembrete, listarLembretes, estadoLembrete } = await import('./nucleo.js')
+const { definirRepeticao, agirRepeticao, proximoPeriodo } = await import('./nucleo.js')
 const { criarCard, moverCard, comentar, atividade, listarColunas, quadroPadrao, atualizarCard, obterCard, quadroCompleto, listarArquivados, arquivarCard, desfazerAcao } = await import('./nucleo.js')
 
 type Coluna = { nome: string; id: string }
@@ -133,6 +134,44 @@ describe('Arquivamento e desfazer com concorrência', () => {
 })
 
 afterAll(() => db.close())
+
+describe('Repetição', () => {
+  it('gera uma vez, copia conteúdo e tags, pausa a série e preserva proveniência', () => {
+    const t = criarTag('Repetir', 'codex')
+    const c = criarCard({ titulo: 'Rotina única', descricao: 'Contexto', projeto: 'rotina', tags: [t.id], autor: 'lucas' })
+    definirRepeticao(c.id, { frequencia: 'diaria' }, 'lucas')
+    const antes = pesquisarCards().length
+    const movido = moverCard(c.id, { coluna: 'Concluído' }, 'astra')
+    expect(pesquisarCards()).toHaveLength(antes + 1)
+    moverCard(c.id, { coluna: 'A fazer' }, 'astra')
+    moverCard(c.id, { coluna: 'Concluído' }, 'astra')
+    expect(pesquisarCards()).toHaveLength(antes + 1)
+    const nova = pesquisarCards().find(a => a.repeticao_id === obterCard(c.id)!.repeticao_id && a.id !== c.id)!
+    expect(nova).toMatchObject({ titulo: c.titulo, descricao: c.descricao, projeto: c.projeto, coluna: 'A fazer', tags: [t] })
+    expect(obterCard(nova.id)!.eventos).toEqual(expect.arrayContaining([expect.objectContaining({ autor: 'astra', acao: 'ocorrência de', detalhe: expect.stringContaining(c.id) })]))
+    expect(() => desfazerAcao(movido.acao_id!, 'astra')).toThrow('ocorrência')
+    agirRepeticao(nova.id, 'pausada', 'lucas')
+    moverCard(nova.id, { coluna: 'Concluído' }, 'astra')
+    expect(pesquisarCards()).toHaveLength(antes + 1)
+    agirRepeticao(nova.id, 'ativa', 'lucas')
+    moverCard(nova.id, { coluna: 'Concluído' }, 'astra')
+    expect(pesquisarCards()).toHaveLength(antes + 2)
+    agirRepeticao(nova.id, 'encerrada', 'lucas')
+    expect(() => agirRepeticao(c.id, 'ativa', 'codex')).toThrow('encerrada')
+    expect(filtrarCards('', { repetida: true }).some(a => a.id === c.id)).toBe(true)
+    const ocorrencia = db.prepare('SELECT * FROM ocorrencias WHERE origem_card_id = ?').get(c.id) as { repeticao_id: string; periodo: string; card_id: string }
+    expect(() => db.prepare('INSERT INTO ocorrencias (repeticao_id, periodo, card_id, origem_card_id) VALUES (?, ?, ?, ?)').run(ocorrencia.repeticao_id, ocorrencia.periodo, c.id, c.id)).toThrow()
+  })
+  it('calcula semana e fim de mês, valida regras', () => {
+    expect(proximoPeriodo({ frequencia: 'semanal', dias: [1, 3] }, '2026-10-04')).toBe('2026-10-05')
+    expect(proximoPeriodo({ frequencia: 'mensal', dia: 31 }, '2026-01-31')).toBe('2026-02-28')
+    expect(proximoPeriodo({ frequencia: 'mensal', dia: 31 }, '2028-01-31')).toBe('2028-02-29')
+    expect(proximoPeriodo({ frequencia: 'mensal', dia: 10 }, '2026-10-04')).toBe('2026-10-10')
+    const c = criarCard({ titulo: 'Regra inválida', autor: 'codex' })
+    expect(() => definirRepeticao(c.id, { frequencia: 'semanal', dias: [] }, 'codex')).toThrow()
+    expect(() => definirRepeticao(c.id, { frequencia: 'mensal', dia: 32 }, 'codex')).toThrow()
+  })
+})
 
 describe('Lembretes', () => {
   it('distingue hoje em São Paulo e consulta apenas pendentes, com autoria', () => {

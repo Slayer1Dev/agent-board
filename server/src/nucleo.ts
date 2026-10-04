@@ -19,6 +19,7 @@ export type Card = {
   lembrete_feito_em: string | null
   repeticao_id: string | null
   lembrete_estado: 'futuro' | 'hoje' | 'atrasado' | 'feito' | null
+  repeticao: { regra: RegraRepeticao; estado: string; periodo: string; proxima: string } | null
 }
 
 export type Tag = { id: string; nome: string; cor: string }
@@ -28,7 +29,77 @@ function tagsDoCard(id: string): Tag[] {
 }
 function enriquecer(card: Card): Card {
   const criador = db.prepare("SELECT autor FROM eventos WHERE card_id = ? AND acao = 'criou' ORDER BY rowid LIMIT 1").get(card.id) as { autor: string } | undefined
-  return { ...card, tags: tagsDoCard(card.id), autor: criador?.autor ?? null, lembrete_estado: estadoLembrete(card) }
+  return { ...card, tags: tagsDoCard(card.id), autor: criador?.autor ?? null, lembrete_estado: estadoLembrete(card), repeticao: repeticaoDoCard(card) }
+}
+
+export type RegraRepeticao = { frequencia: 'diaria' | 'semanal' | 'mensal'; dias?: number[]; dia?: number }
+export function proximoPeriodo(regra: RegraRepeticao, depois: string): string {
+  const data = new Date(`${depois}T12:00:00Z`)
+  if (regra.frequencia === 'mensal') {
+    for (let mes = 0; mes < 3; mes++) {
+      const fim = new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth() + mes + 1, 0)).getUTCDate()
+      const candidato = new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth() + mes, Math.min(regra.dia!, fim), 12)).toISOString().slice(0, 10)
+      if (candidato > depois) return candidato
+    }
+  } else {
+    for (let n = 1; n <= 7; n++) {
+      data.setUTCDate(data.getUTCDate() + 1)
+      if (regra.frequencia === 'diaria' || regra.dias!.includes(data.getUTCDay())) return data.toISOString().slice(0, 10)
+    }
+  }
+  throw new Error('Regra de repetição inválida.')
+}
+function repeticaoDoCard(card: Card): Card['repeticao'] {
+  if (!card.repeticao_id) return null
+  const r = db.prepare('SELECT r.regra, r.estado, o.periodo FROM repeticoes r JOIN ocorrencias o ON o.repeticao_id = r.id WHERE o.card_id = ?').get(card.id) as { regra: string; estado: string; periodo: string } | undefined
+  if (!r) return null
+  const regra = JSON.parse(r.regra) as RegraRepeticao
+  const gerada = db.prepare('SELECT periodo FROM ocorrencias WHERE origem_card_id = ?').get(card.id) as { periodo: string } | undefined
+  return { regra, estado: r.estado, periodo: r.periodo, proxima: gerada?.periodo ?? proximoPeriodo(regra, [r.periodo, diaLocal(new Date())].sort().at(-1)!) }
+}
+export function definirRepeticao(id: string, regra: RegraRepeticao, autor: string, revisao?: number): Card {
+  if (!['diaria', 'semanal', 'mensal'].includes(regra.frequencia)) throw new Error('Frequência inválida.')
+  if (regra.frequencia === 'semanal' && (!regra.dias?.length || regra.dias.some(d => !Number.isInteger(d) || d < 0 || d > 6))) throw new Error('Escolha dias da semana entre 0 (domingo) e 6.')
+  if (regra.frequencia === 'mensal' && (!Number.isInteger(regra.dia) || regra.dia! < 1 || regra.dia! > 31)) throw new Error('Dia mensal deve estar entre 1 e 31.')
+  return db.transaction(() => {
+    const c = exigirCard(id, revisao)
+    if (c.repeticao?.estado === 'encerrada') throw new Error('Repetição encerrada. Crie um novo card para iniciar outra série.')
+    const serie = c.repeticao_id ?? uid()
+    db.prepare("INSERT INTO repeticoes (id, regra) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET regra = excluded.regra").run(serie, JSON.stringify(regra))
+    db.prepare('INSERT OR IGNORE INTO ocorrencias (repeticao_id, periodo, card_id) VALUES (?, ?, ?)').run(serie, diaLocal(new Date()), id)
+    db.prepare('UPDATE cards SET repeticao_id = ? WHERE id = ?').run(serie, id)
+    invalidarSerie(serie)
+    registrar(id, autor, 'definiu repetição', JSON.stringify(regra))
+    return exigirCard(id)
+  })()
+}
+function invalidarSerie(serie: string) {
+  db.prepare("UPDATE cards SET revisao = revisao + 1, atualizado_em = datetime('now') WHERE repeticao_id = ?").run(serie)
+}
+export function agirRepeticao(id: string, estado: 'ativa' | 'pausada' | 'encerrada', autor: string, revisao?: number): Card {
+  return db.transaction(() => {
+    const c = exigirCard(id, revisao)
+    if (!c.repeticao_id || !c.repeticao) throw new Error('Card sem repetição.')
+    if (!['ativa', 'pausada', 'encerrada'].includes(estado)) throw new Error('Estado inválido.')
+    if (c.repeticao.estado === 'encerrada') throw new Error('Repetição já encerrada.')
+    db.prepare('UPDATE repeticoes SET estado = ? WHERE id = ?').run(estado, c.repeticao_id)
+    invalidarSerie(c.repeticao_id)
+    registrar(id, autor, 'alterou repetição', estado)
+    return exigirCard(id)
+  })()
+}
+function gerarProxima(id: string, autor: string) {
+  const c = exigirCard(id)
+  if (!c.repeticao || c.repeticao.estado !== 'ativa') return
+  const coluna = db.prepare('SELECT nome FROM colunas WHERE id = ?').get(c.coluna_id) as { nome: string }
+  if (coluna.nome !== 'Concluído' || db.prepare('SELECT 1 FROM ocorrencias WHERE origem_card_id = ?').get(id)) return
+  const periodo = c.repeticao.proxima
+  if (db.prepare('SELECT 1 FROM ocorrencias WHERE repeticao_id = ? AND periodo = ?').get(c.repeticao_id, periodo)) return
+  const novo = criarCard({ titulo: c.titulo, descricao: c.descricao, projeto: c.projeto ?? undefined, tags: c.tags.map(t => t.id), coluna: 'A fazer', autor })
+  db.prepare('UPDATE cards SET repeticao_id = ? WHERE id = ?').run(c.repeticao_id, novo.id)
+  db.prepare('INSERT INTO ocorrencias (repeticao_id, periodo, card_id, origem_card_id) VALUES (?, ?, ?, ?)').run(c.repeticao_id, periodo, novo.id, id)
+  registrar(novo.id, autor, 'ocorrência de', `${id} · ${periodo}`)
+  registrar(id, autor, 'gerou ocorrência', `${novo.id} · ${periodo}`)
 }
 
 function diaLocal(data: Date) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(data) }
@@ -410,7 +481,9 @@ export function atualizarCard(id: string, campos: Parameters<typeof atualizarCar
 export function moverCard(id: string, destino: Parameters<typeof moverCardOriginal>[1], autor: string, revisao?: number): Card {
   return alterar(id, autor, 'movimento', () => {
     if (exigirCard(id, revisao).arquivado_em) throw new Error('Restaure o card antes de movê-lo.')
-    return moverCardOriginal(id, destino, autor)
+    const resultado = moverCardOriginal(id, destino, autor)
+    gerarProxima(id, autor)
+    return resultado
   })
 }
 export function comentar(id: string, autor: string, texto: string) {
@@ -438,6 +511,7 @@ export function desfazerAcao(id: string, autor: string): Card {
     const acao = db.prepare('SELECT * FROM acoes_reversiveis WHERE id = ?').get(id) as Acao | undefined
     if (!acao || acao.autor !== autor) throw new Error('Ação não disponível para este autor.')
     if (acao.desfeita_em) throw new Error('Esta ação já foi desfeita.')
+    if (acao.tipo === 'movimento' && db.prepare('SELECT 1 FROM ocorrencias WHERE origem_card_id = ?').get(acao.card_id)) throw new Error('Este movimento gerou uma ocorrência. Mova o card manualmente; a ocorrência e seu histórico serão preservados.')
     const atual = exigirCard(acao.card_id)
     if (atual.revisao !== acao.revisao_esperada) throw new Error('Não foi possível desfazer: o card recebeu outra alteração. O trabalho mais recente foi preservado.')
     const antes = acao.antes ? JSON.parse(acao.antes) as Card : null

@@ -74,6 +74,7 @@ export function Coluna({ coluna, total, filtrado, autores, arrastando, aoArrasta
               aria-label={`Abrir ${card.titulo}`}
             >
               <p className="card__titulo">{tituloDoCard(card)}</p>
+              {card.repeticao && <p className="lembrete-estado">↻ {card.repeticao.estado === 'ativa' ? `Próxima: ${card.repeticao.proxima.split('-').reverse().join('/')}` : card.repeticao.estado}</p>}
               {card.lembrete_em && card.lembrete_estado !== 'feito' && <p className={`lembrete-estado lembrete-estado--${card.lembrete_estado}`}>◷ {card.lembrete_estado === 'hoje' ? 'Vence hoje' : card.lembrete_estado === 'atrasado' ? 'Atrasado' : 'Lembrete futuro'} · {new Date(card.lembrete_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}</p>}
               {!!card.tags?.length && <div className="tags">{card.tags.map(t => <span className="tag" key={t.id} style={{ borderColor: t.cor }}>{t.nome}</span>)}</div>}
               <div className="card__rodape"><Projeto nome={projetoDoCard(card)} />{card.id in autores ? <Autor nome={autores[card.id]} /> : <span className="card__autoria-carregando">Carregando autoria…</span>}<DataHora valor={card.atualizado_em} curta /></div>

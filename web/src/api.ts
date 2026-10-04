@@ -17,7 +17,9 @@ export type Card = {
   lembrete_feito_em: string | null
   repeticao_id: string | null
   lembrete_estado: 'futuro' | 'hoje' | 'atrasado' | 'feito' | null
+  repeticao: { regra: RegraRepeticao; estado: string; periodo: string; proxima: string } | null
 }
+export type RegraRepeticao = { frequencia: 'diaria' | 'semanal' | 'mensal'; dias?: number[]; dia?: number }
 export type Tag = { id: string; nome: string; cor: string }
 export type ProjetoResumo = { nome: string; cor: string; favorito: boolean; oculto: boolean; ultima_atividade: string | null; colunas: { nome: string; total: number }[] }
 
@@ -52,6 +54,8 @@ async function req<T>(caminho: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  definirRepeticao: (id: string, regra: RegraRepeticao, revisao: number) => req<Card>(`/cards/${id}/repeticao`, { method: 'PUT', body: JSON.stringify({ regra, revisao }) }),
+  agirRepeticao: (id: string, estado: string, revisao: number) => req<Card>(`/cards/${id}/repeticao`, { method: 'POST', body: JSON.stringify({ estado, revisao }) }),
   lembretes: () => req<Card[]>('/lembretes'),
   definirLembrete: (id: string, data: string | null, nota: string, revisao: number) => req<Card>(`/cards/${id}/lembrete`, { method: 'PUT', body: JSON.stringify({ data, nota, revisao }) }),
   agirLembrete: (id: string, acao: string, revisao: number) => req<Card>(`/cards/${id}/lembrete`, { method: 'POST', body: JSON.stringify({ acao, revisao }) }),
