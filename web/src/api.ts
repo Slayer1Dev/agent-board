@@ -7,6 +7,9 @@ export type Card = {
   projeto: string | null
   criado_em: string
   atualizado_em: string
+  arquivado_em: string | null
+  revisao: number
+  acao_id?: string
 }
 
 export type Coluna = { id: string; nome: string; posicao: number; cards: Card[] }
@@ -47,14 +50,19 @@ export const api = {
   criarCard: (dados: { titulo: string; colunaId: string; descricao?: string; projeto?: string }) =>
     req<Card>('/cards', { method: 'POST', body: JSON.stringify(dados) }),
 
-  moverCard: (id: string, colunaId: string, posicao?: number) =>
-    req<Card>(`/cards/${id}/mover`, { method: 'POST', body: JSON.stringify({ colunaId, posicao }) }),
+  moverCard: (id: string, colunaId: string, posicao?: number, revisao?: number) =>
+    req<Card>(`/cards/${id}/mover`, { method: 'POST', body: JSON.stringify({ colunaId, posicao, revisao }) }),
 
-  atualizarCard: (id: string, dados: { titulo?: string; descricao?: string }) =>
+  atualizarCard: (id: string, dados: { titulo?: string; descricao?: string; revisao?: number }) =>
     req<Card>(`/cards/${id}`, { method: 'PATCH', body: JSON.stringify(dados) }),
 
   comentar: (id: string, texto: string) =>
     req<{ ok: true }>(`/cards/${id}/comentarios`, { method: 'POST', body: JSON.stringify({ texto }) }),
+
+  arquivados: () => req<Card[]>('/arquivados'),
+  arquivar: (id: string, revisao: number) => req<Card>(`/cards/${id}/arquivar`, { method: 'POST', body: JSON.stringify({ revisao }) }),
+  restaurar: (id: string, revisao: number) => req<Card>(`/cards/${id}/restaurar`, { method: 'POST', body: JSON.stringify({ revisao }) }),
+  desfazer: (id: string) => req<Card>(`/acoes/${id}/desfazer`, { method: 'POST', body: '{}' }),
 
   removerCard: (id: string) => req<{ ok: true }>(`/cards/${id}`, { method: 'DELETE' }),
 

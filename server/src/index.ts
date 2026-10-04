@@ -14,6 +14,9 @@ import {
   atividade,
   criarColuna,
   quadroPadrao,
+  listarArquivados,
+  arquivarCard,
+  desfazerAcao,
 } from './nucleo.js'
 
 const PORTA = Number(process.env.BOARD_PORT ?? 8078)
@@ -50,6 +53,8 @@ api.use(autenticar)
 api.get('/quadro', (_req, res) => res.json(quadroCompleto()))
 api.get('/atividade', (req, res) => res.json(atividade(Number(req.query.limite ?? 50))))
 
+api.get('/arquivados', (_req, res) => res.json(listarArquivados()))
+
 api.get('/cards/:id', (req, res) => {
   const c = obterCard(req.params.id)
   return c ? res.json(c) : res.status(404).json({ erro: 'card não encontrado' })
@@ -67,7 +72,7 @@ api.post('/cards', (req, res) => {
 
 api.patch('/cards/:id', (req, res) => {
   try {
-    res.json(atualizarCard(req.params.id, req.body ?? {}, autor(req)))
+    res.json(atualizarCard(req.params.id, req.body ?? {}, autor(req), req.body?.revisao))
   } catch (e) {
     res.status(400).json({ erro: (e as Error).message })
   }
@@ -76,7 +81,7 @@ api.patch('/cards/:id', (req, res) => {
 api.post('/cards/:id/mover', (req, res) => {
   try {
     const { coluna, colunaId, posicao } = req.body ?? {}
-    res.json(moverCard(req.params.id, { coluna, colunaId, posicao }, autor(req)))
+    res.json(moverCard(req.params.id, { coluna, colunaId, posicao }, autor(req), req.body?.revisao))
   } catch (e) {
     res.status(400).json({ erro: (e as Error).message })
   }
@@ -90,6 +95,17 @@ api.post('/cards/:id/comentarios', (req, res) => {
   } catch (e) {
     res.status(400).json({ erro: (e as Error).message })
   }
+})
+
+for (const rota of ['arquivar', 'restaurar'] as const) {
+  api.post(`/cards/:id/${rota}`, (req, res) => {
+    try { res.json(arquivarCard(req.params.id, autor(req), rota === 'restaurar', req.body?.revisao)) }
+    catch (e) { res.status(409).json({ erro: (e as Error).message }) }
+  })
+}
+api.post('/acoes/:id/desfazer', (req, res) => {
+  try { res.json(desfazerAcao(req.params.id, autor(req))) }
+  catch (e) { res.status(409).json({ erro: (e as Error).message }) }
 })
 
 api.delete('/cards/:id', (req, res) => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import { api, type Card, type Evento, type Quadro } from './api'
 import { Coluna } from './components/Coluna'
@@ -6,6 +6,8 @@ import { PainelCard } from './components/PainelCard'
 import { Atividade } from './components/Atividade'
 import { projetoDoCard } from './components/Identidade'
 import { useAutores } from './components/useAutores'
+import { Arquivados } from './components/Arquivados'
+import { Aparencia, lerPreferencias, salvarPreferencias, type Preferencias } from './components/Aparencia'
 
 export default function App() {
   const [quadro, setQuadro] = useState<Quadro | null>(null)
@@ -13,6 +15,22 @@ export default function App() {
   const [erro, setErro] = useState<string | null>(null)
   const [selecionado, setSelecionado] = useState<string | null>(null)
   const [arrastando, setArrastando] = useState<string | null>(null)
+
+  const [acoes, setAcoes] = useState<{ id: string; nome: string }[]>([])
+  const [desfazendo, setDesfazendo] = useState(false)
+  const travaDesfazer = useRef(false)
+  const [avisoAcao, setAvisoAcao] = useState('')
+  const [arquivadosAbertos, setArquivadosAbertos] = useState(false)
+
+  const [preferencias, setPreferencias] = useState(lerPreferencias)
+  const [personalizando, setPersonalizando] = useState(false)
+  const [erroPreferencia, setErroPreferencia] = useState('')
+  useEffect(() => { document.documentElement.dataset.tema = preferencias.tema }, [preferencias.tema])
+  function mudarAparencia(valor: Preferencias) {
+    setPreferencias(valor)
+    try { salvarPreferencias(valor); setErroPreferencia('') }
+    catch { setErroPreferencia('A aparência foi aplicada, mas não pôde ser salva neste navegador. Tente remover o wallpaper ou liberar espaço.') }
+  }
 
   const [projeto, setProjeto] = useState('')
   const autores = useAutores(quadro)
@@ -44,9 +62,40 @@ export default function App() {
     return () => clearInterval(t)
   }, [carregar])
 
+  function registrarAcao(card: Card, nome: string) {
+    if (card.acao_id) setAcoes(a => [...a.slice(-29), { id: card.acao_id!, nome }])
+    setAvisoAcao(nome + '. Você pode desfazer pelo botão ou Ctrl+Z.')
+    assinatura.current = ''
+    void carregar()
+  }
+  const desfazer = useCallback(async () => {
+    const ultima = acoes.at(-1)
+    if (!ultima || travaDesfazer.current) return
+    travaDesfazer.current = true; setDesfazendo(true)
+    try {
+      await api.desfazer(ultima.id)
+      setAcoes(a => a.filter(item => item.id !== ultima.id))
+      setSelecionado(null); setArquivadosAbertos(false)
+      setAvisoAcao('Desfeito: ' + ultima.nome.toLocaleLowerCase() + '.')
+      assinatura.current = ''
+      await carregar()
+    } catch (e) { setAvisoAcao((e as Error).message) }
+    finally { travaDesfazer.current = false; setDesfazendo(false) }
+  }, [acoes, carregar])
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      const alvo = e.target as HTMLElement | null
+      if (alvo?.closest('input, textarea, select, [contenteditable="true"]')) return
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && acoes.length) { e.preventDefault(); void desfazer() }
+    }
+    window.addEventListener('keydown', tecla)
+    return () => window.removeEventListener('keydown', tecla)
+  }, [acoes.length, desfazer])
+
   async function soltarEm(colunaId: string) {
     if (!arrastando) return
     const id = arrastando
+    const original = quadro?.colunas.flatMap(c => c.cards).find(c => c.id === id)
     setArrastando(null)
 
     // Otimista: move na tela antes da resposta, senão o arraste parece travado.
@@ -70,7 +119,8 @@ export default function App() {
     })
 
     try {
-      await api.moverCard(id, colunaId)
+      const card = await api.moverCard(id, colunaId, undefined, original?.revisao)
+      registrarAcao(card, 'Card movido')
     } catch (e) {
       setErro((e as Error).message)
     }
@@ -80,7 +130,8 @@ export default function App() {
 
   async function adicionar(colunaId: string, titulo: string) {
     try {
-      await api.criarCard({ titulo, colunaId })
+      const card = await api.criarCard({ titulo, colunaId })
+      registrarAcao(card, 'Card criado')
       assinatura.current = ''
       carregar()
     } catch (e) {
@@ -110,7 +161,7 @@ export default function App() {
   const visiveis = quadro.colunas.reduce((n, c) => n + c.cards.filter(filtrar).length, 0)
 
   return (
-    <div className="app">
+    <div className={`app fundo--${preferencias.fundo}${preferencias.wallpaper ? ' com-wallpaper' : ''}${preferencias.largura ? ' listas-fixas' : ''}`} style={{ '--largura-lista': `${preferencias.largura}px`, '--wallpaper': preferencias.wallpaper ? `url("${preferencias.wallpaper}")` : 'none' } as CSSProperties}>
       <header className="topo">
         <div className="topo__identidade">
           <span className="marca" aria-hidden="true"><i /><i /><i /></span>
@@ -120,8 +171,10 @@ export default function App() {
       </header>
       <div className="ferramentas">
         <div className="filtro"><label htmlFor="projeto">Projeto</label><select id="projeto" value={projeto} onChange={e => setProjeto(e.target.value)}><option value="">Todos os projetos</option>{projetos.filter(Boolean).map(p => <option key={p} value={p}>{p}</option>)}{projetos.includes('') && <option value="__sem__">Sem projeto</option>}</select><span className="filtro__contagem">{projeto ? `${visiveis} de ${total}` : total} cards</span></div>
-        <p className="ferramentas__dica">Abra um card para ver contexto e histórico</p>
+        <div className="ferramentas__acoes"><button className="btn" disabled={!acoes.length || desfazendo} onClick={() => void desfazer()} title="Ctrl+Z · ações desta sessão. Em campos de texto, desfaz a digitação.">{desfazendo ? 'Desfazendo…' : 'Desfazer'}</button><button className="btn" onClick={() => setArquivadosAbertos(true)}>Arquivados</button><button className="btn btn--personalizar" onClick={() => setPersonalizando(true)}>Personalizar</button></div>
       </div>
+      {avisoAcao && <div className="aviso-acao" role="status"><span>{avisoAcao}</span><button onClick={() => setAvisoAcao('')} aria-label="Fechar aviso">×</button></div>}
+      {erroPreferencia && <p className="aviso-conexao" role="alert">{erroPreferencia}</p>}
       {erro && <div className="aviso-conexao" role="alert"><strong>Não foi possível atualizar o quadro.</strong> Os últimos dados continuam visíveis. Tentando reconectar… <span>{erro}</span></div>}
       <main className="quadro" aria-label="Quadro Kanban">
         {quadro.colunas.map((c) => (
@@ -142,10 +195,13 @@ export default function App() {
 
       <Atividade eventos={eventos} />
 
+      {arquivadosAbertos && <Arquivados aoFechar={() => setArquivadosAbertos(false)} aoRestaurar={card => registrarAcao(card, 'Card restaurado')} aoAbrir={id => { setArquivadosAbertos(false); setSelecionado(id) }} />}
+      {personalizando && <Aparencia valor={preferencias} aoMudar={mudarAparencia} aoFechar={() => setPersonalizando(false)} />}
       {selecionado && (
         <PainelCard
           id={selecionado}
           aoFechar={fecharPainel}
+          aoAcao={registrarAcao}
           aoMudar={() => {
             assinatura.current = ''
             carregar()

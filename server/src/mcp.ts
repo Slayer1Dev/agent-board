@@ -9,6 +9,9 @@ import {
   comentar,
   removerCard,
   atividade,
+  listarArquivados,
+  arquivarCard,
+  desfazerAcao,
 } from './nucleo.js'
 
 const texto = (valor: unknown) => ({
@@ -156,7 +159,7 @@ export function criarServidorMcp() {
     'remover_card',
     {
       title: 'Remover card',
-      description: 'Apaga um card. Ação destrutiva — prefira mover para "Concluído".',
+      description: 'Apaga um card. Ação destrutiva — prefira arquivar_card, que preserva o histórico.',
       inputSchema: { id: z.string(), autor: AUTOR },
       annotations: { destructiveHint: true },
     },
@@ -185,6 +188,21 @@ export function criarServidorMcp() {
       }
     },
   )
+
+  s.registerTool('ver_arquivados', {
+    title: 'Ver cards arquivados', description: 'Cards fora do quadro, preservados com todo o histórico e disponíveis para restaurar.', inputSchema: {},
+  }, async () => { try { return texto(listarArquivados()) } catch (e) { return erro(e) } })
+  for (const restaurar of [false, true]) {
+    s.registerTool(restaurar ? 'restaurar_card' : 'arquivar_card', {
+      title: restaurar ? 'Restaurar card' : 'Arquivar card',
+      description: restaurar ? 'Devolve um card arquivado à sua coluna original.' : 'Retira um card do quadro sem apagar o histórico. Reversível por restaurar_card.',
+      inputSchema: { id: z.string(), autor: AUTOR },
+    }, async ({ id, autor }) => { try { return texto(arquivarCard(id, autor, restaurar)) } catch (e) { return erro(e) } })
+  }
+  s.registerTool('desfazer_acao', {
+    title: 'Desfazer ação', description: 'Desfaz por acao_id retornado na escrita. Exige mesmo autor e recusa se o card mudou depois. Criação é desfeita por arquivamento; comentários não são apagados.',
+    inputSchema: { id: z.string(), autor: AUTOR },
+  }, async ({ id, autor }) => { try { return texto(desfazerAcao(id, autor)) } catch (e) { return erro(e) } })
 
   return s
 }

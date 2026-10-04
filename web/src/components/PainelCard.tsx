@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { api, type Card, type Evento } from '../api'
 import { Autor, DataHora, Projeto, autorCriacao, projetoDoCard, tituloDoCard } from './Identidade'
 
-type Props = { id: string; aoFechar: () => void; aoMudar: () => void }
+type Props = { id: string; aoFechar: () => void; aoMudar: () => void; aoAcao: (card: Card, nome: string) => void }
 
-export function PainelCard({ id, aoFechar, aoMudar }: Props) {
+export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
   const [card, setCard] = useState<(Card & { eventos: Evento[] }) | null>(null)
   const [descricao, setDescricao] = useState('')
   const [comentario, setComentario] = useState('')
@@ -39,7 +39,8 @@ export function PainelCard({ id, aoFechar, aoMudar }: Props) {
     if (!card || descricao === card.descricao) return
     setSalvando(true)
     try {
-      await api.atualizarCard(id, { descricao })
+      const resultado = await api.atualizarCard(id, { descricao, revisao: card.revisao })
+      aoAcao(resultado, 'Descrição alterada')
       const atualizado = await api.card(id)
       setCard(atualizado)
       setErro(null)
@@ -61,9 +62,11 @@ export function PainelCard({ id, aoFechar, aoMudar }: Props) {
     } catch (e) { setErro((e as Error).message) }
   }
 
-  async function remover() {
+  async function arquivar() {
+    if (!card) return
     try {
-      await api.removerCard(id)
+      const resultado = card.arquivado_em ? await api.restaurar(id, card.revisao) : await api.arquivar(id, card.revisao)
+      aoAcao(resultado, card.arquivado_em ? 'Card restaurado' : 'Card arquivado')
       aoMudar()
       aoFechar()
     } catch (e) { setErro((e as Error).message) }
@@ -91,6 +94,7 @@ export function PainelCard({ id, aoFechar, aoMudar }: Props) {
 
             </header>
 
+            {card.arquivado_em && <p className="painel__dica">Este card está arquivado. O histórico foi preservado.</p>}
             <div className="painel__meta"><Projeto nome={projetoDoCard(card)} /><Autor nome={autorCriacao(card.eventos)} /><span className="painel__dica">Criado em <DataHora valor={card.criado_em} /></span></div>
 
             <label className="rotulo" htmlFor="desc">
@@ -132,8 +136,8 @@ export function PainelCard({ id, aoFechar, aoMudar }: Props) {
               </button>
             </form>
 
-            <button className="btn btn--perigo" type="button" onClick={remover}>
-              Remover card
+            <button className="btn btn--perigo" type="button" onClick={arquivar}>
+              {card.arquivado_em ? 'Restaurar card' : 'Arquivar card'}
             </button>
           </>
         )}

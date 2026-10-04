@@ -53,6 +53,23 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_eventos_card   ON eventos(card_id);
 `)
 
+// Migração aditiva: os cards existentes e seu histórico permanecem intactos.
+const camposCard = db.prepare('PRAGMA table_info(cards)').all() as { name: string }[]
+if (!camposCard.some(c => c.name === 'arquivado_em')) db.exec('ALTER TABLE cards ADD COLUMN arquivado_em TEXT')
+if (!camposCard.some(c => c.name === 'revisao')) db.exec('ALTER TABLE cards ADD COLUMN revisao INTEGER NOT NULL DEFAULT 0')
+db.exec(`CREATE TABLE IF NOT EXISTS acoes_reversiveis (
+  id TEXT PRIMARY KEY,
+  card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  autor TEXT NOT NULL,
+  tipo TEXT NOT NULL,
+  antes TEXT,
+  depois TEXT NOT NULL,
+  revisao_esperada INTEGER NOT NULL,
+  desfeita_em TEXT,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_acoes_card ON acoes_reversiveis(card_id);`)
+
 export const uid = () => randomUUID()
 
 /** Cria um quadro inicial na primeira execução, para o app nunca abrir vazio. */

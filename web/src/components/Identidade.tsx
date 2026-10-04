@@ -19,7 +19,7 @@ export function Projeto({ nome }: { nome: string }) {
   let hash = 0
   for (const letra of nome.toLowerCase()) hash = ((hash * 31) + letra.charCodeAt(0)) >>> 0
   hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b) >>> 0
-  const estilo = { '--projeto': `hsl(${hash % 360} 65% 78%)` } as CSSProperties
+  const estilo = { '--projeto': `hsl(${hash % 360} 65% var(--projeto-luz, 78%))` } as CSSProperties
   return <span className={`projeto${nome ? '' : ' projeto--vazio'}`} style={estilo} title={nome || 'Sem projeto'}>{nome || 'Sem projeto'}</span>
 }
 
