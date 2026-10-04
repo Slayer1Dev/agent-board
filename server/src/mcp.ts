@@ -15,6 +15,7 @@ import {
   pesquisarCards,
   listarTags, criarTag, alterarTag, definirTags,
   filtrarCards,
+  listarProjetos, atualizarProjeto,
 } from './nucleo.js'
 
 const texto = (valor: unknown) => ({
@@ -37,6 +38,8 @@ const AUTOR = z
 
 export function criarServidorMcp() {
   const s = new McpServer({ name: 'agent-board', version: '0.1.0' })
+  s.registerTool('listar_projetos', { inputSchema: { ordem: z.enum(['atividade', 'nome']).optional(), ocultos: z.boolean().optional() } }, async ({ ordem, ocultos }) => { try { return texto(listarProjetos(ordem, ocultos)) } catch (e) { return erro(e) } })
+  s.registerTool('atualizar_projeto', { inputSchema: { nome: z.string(), cor: z.string().optional(), favorito: z.boolean().optional(), oculto: z.boolean().optional(), autor: AUTOR } }, async ({ nome, autor, ...campos }) => { try { return texto(atualizarProjeto(nome, campos, autor)) } catch (e) { return erro(e) } })
   s.registerTool('filtrar_cards', { inputSchema: {
     busca: z.string().optional(), projeto: z.string().optional(), tag: z.string().optional(), autor: z.string().optional(), coluna: z.string().optional(),
     depende: z.boolean().optional(), lembrete: z.boolean().optional(), repetida: z.boolean().optional(), dias: z.number().int().min(1).max(36500).optional(),

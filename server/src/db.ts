@@ -74,6 +74,10 @@ db.exec(`CREATE TABLE IF NOT EXISTS acoes_reversiveis (
 CREATE INDEX IF NOT EXISTS idx_acoes_card ON acoes_reversiveis(card_id);`)
 
 export const uid = () => randomUUID()
+db.exec(`CREATE TABLE IF NOT EXISTS projetos (
+  nome TEXT PRIMARY KEY, cor TEXT NOT NULL, favorito INTEGER NOT NULL DEFAULT 0,
+  oculto INTEGER NOT NULL DEFAULT 0, atualizado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);`)
 db.exec(`CREATE TABLE IF NOT EXISTS tags (id TEXT PRIMARY KEY, nome TEXT NOT NULL COLLATE NOCASE UNIQUE, cor TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS card_tags (card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE, tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY(card_id, tag_id));`)
 

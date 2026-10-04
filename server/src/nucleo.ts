@@ -97,6 +97,34 @@ export function definirTags(id: string, tags: string[], autor: string, revisao?:
 export type Coluna = { id: string; quadro_id: string; nome: string; posicao: number }
 export type Quadro = { id: string; nome: string; criado_em: string }
 
+export type Projeto = { nome: string; cor: string; favorito: boolean; oculto: boolean; ultima_atividade: string | null; colunas: { nome: string; total: number }[] }
+export function listarProjetos(ordem: 'atividade' | 'nome' = 'atividade', incluirOcultos = false): Projeto[] {
+  const nomes = db.prepare("SELECT projeto AS nome FROM cards WHERE projeto IS NOT NULL AND projeto <> '' UNION SELECT nome FROM projetos").all() as { nome: string }[]
+  const colunas = listarColunas(quadroPadrao().id)
+  const projetos = nomes.map(({ nome }) => {
+    const meta = db.prepare('SELECT * FROM projetos WHERE nome = ?').get(nome) as { cor: string; favorito: number; oculto: number; atualizado_em: string } | undefined
+    const ultima = db.prepare('SELECT MAX(atualizado_em) AS data FROM cards WHERE projeto = ?').get(nome) as { data: string | null }
+    const indice = [...nome].reduce((n, c) => n + c.charCodeAt(0), 0) % 5
+    return { nome, cor: meta?.cor ?? ['#a5c8ff', '#f5c698', '#b9dfba', '#dfb4ed', '#f4abb9'][indice], favorito: !!meta?.favorito, oculto: !!meta?.oculto,
+      ultima_atividade: [ultima.data, meta?.atualizado_em ?? null].filter((v): v is string => !!v).sort().at(-1) ?? null,
+      colunas: colunas.map(c => ({ nome: c.nome, total: (db.prepare('SELECT COUNT(*) AS n FROM cards WHERE projeto = ? AND coluna_id = ? AND arquivado_em IS NULL').get(nome, c.id) as { n: number }).n })),
+    }
+  }).filter(p => incluirOcultos || !p.oculto)
+  return projetos.sort((a, b) => Number(b.favorito) - Number(a.favorito) || (ordem === 'nome' ? a.nome.localeCompare(b.nome, 'pt-BR') : (b.ultima_atividade ?? '').localeCompare(a.ultima_atividade ?? '') || a.nome.localeCompare(b.nome, 'pt-BR')))
+}
+export function atualizarProjeto(nome: string, campos: { cor?: string; favorito?: boolean; oculto?: boolean }, autor: string) {
+  if (!nome.trim()) throw new Error('Projeto obrigatório.')
+  if (campos.cor && !/^#[0-9a-f]{6}$/i.test(campos.cor)) throw new Error('Cor inválida.')
+  return db.transaction(() => {
+    const atual = listarProjetos('nome', true).find(p => p.nome === nome)
+    db.prepare(`INSERT INTO projetos (nome, cor, favorito, oculto) VALUES (?, ?, ?, ?)
+      ON CONFLICT(nome) DO UPDATE SET cor = excluded.cor, favorito = excluded.favorito, oculto = excluded.oculto, atualizado_em = datetime('now')`)
+      .run(nome, campos.cor ?? atual?.cor ?? '#a5c8ff', Number(campos.favorito ?? atual?.favorito ?? false), Number(campos.oculto ?? atual?.oculto ?? false))
+    registrar(null, autor, 'alterou projeto', `${nome}: ${JSON.stringify(campos)}`)
+    return listarProjetos('nome', true).find(p => p.nome === nome)!
+  })()
+}
+
 export function pesquisarCards(busca = '') {
   const termo = busca.trim().toLocaleLowerCase('pt-BR')
   const cards = db.prepare(`SELECT c.*, col.nome AS coluna FROM cards c JOIN colunas col ON col.id = c.coluna_id ORDER BY c.atualizado_em DESC, c.id`).all() as (Card & { coluna: string })[]

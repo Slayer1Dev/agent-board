@@ -18,6 +18,7 @@ export type Card = {
   repeticao_id: string | null
 }
 export type Tag = { id: string; nome: string; cor: string }
+export type ProjetoResumo = { nome: string; cor: string; favorito: boolean; oculto: boolean; ultima_atividade: string | null; colunas: { nome: string; total: number }[] }
 
 export type Coluna = { id: string; nome: string; posicao: number; cards: Card[] }
 export type Quadro = { id: string; nome: string; colunas: Coluna[] }
@@ -50,6 +51,8 @@ async function req<T>(caminho: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  projetos: (ordem: string, ocultos: boolean) => req<ProjetoResumo[]>(`/projetos?ordem=${ordem}&ocultos=${ocultos}`),
+  atualizarProjeto: (nome: string, campos: { cor?: string; favorito?: boolean; oculto?: boolean }) => req<ProjetoResumo>(`/projetos/${encodeURIComponent(nome)}`, { method: 'PATCH', body: JSON.stringify(campos) }),
   filtrar: (filtros: Record<string, string>) => req<Card[]>(`/cards?${new URLSearchParams({ ...filtros, arquivados: 'false' })}`),
   tags: () => req<Tag[]>('/tags'),
   criarTag: (nome: string) => req<Tag>('/tags', { method: 'POST', body: JSON.stringify({ nome }) }),

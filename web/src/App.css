@@ -17,6 +17,15 @@ mark { background: #f5d392; color: #29200c; border-radius: 2px; }
 .filtros-ampliados label { display: flex; align-items: center; gap: 6px; }
 .filtros-ampliados select { background: var(--campo); color: var(--texto); border: 1px solid var(--linha-forte); padding: 8px; border-radius: 6px; }
 .filtros-ampliados input[type=number] { width: 85px; }
+.projetos-resumo { padding: 0 24px 10px; flex-shrink: 0; color: var(--dim); font-size: 12px; }
+.projetos-resumo summary { cursor: pointer; padding: 4px 0; }
+.projetos-resumo select { background: var(--campo); color: var(--texto); border: 1px solid var(--linha-forte); padding: 6px; border-radius: 5px; }
+.projetos-resumo__lista { display: flex; gap: 10px; overflow: auto; max-height: 220px; padding: 4px 0; }
+.projeto-resumo { background: var(--coluna); border: 1px solid var(--linha); border-left: 4px solid; border-radius: 8px; flex: 0 0 270px; padding: 12px; }
+.projeto-resumo__nome { background: transparent; border: 0; color: var(--texto); font-size: 14px; font-weight: 650; text-align: left; padding: 4px 0; }
+.projeto-resumo__nome[aria-pressed=true] { color: var(--accent); text-decoration: underline; }
+.projeto-resumo__contagem { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 8px 0; }
+.projeto-resumo__contagem b { color: var(--texto); }
 .linha-campos { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
 .linha-campos input, .controles select { background: var(--campo); color: var(--texto); padding: 8px; border: 1px solid var(--linha-forte); border-radius: 6px; min-width: 0; }
 .topo { display: flex; align-items: center; justify-content: space-between; gap: var(--espaco-4); padding: 18px 24px; border-bottom: 1px solid var(--linha); flex-shrink: 0; }

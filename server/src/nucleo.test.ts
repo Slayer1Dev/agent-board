@@ -7,6 +7,7 @@ const { db, semear } = await import('./db.js')
 const { pesquisarCards } = await import('./nucleo.js')
 const { criarTag, alterarTag, definirTags, listarTags } = await import('./nucleo.js')
 const { filtrarCards } = await import('./nucleo.js')
+const { listarProjetos, atualizarProjeto } = await import('./nucleo.js')
 const { criarCard, moverCard, comentar, atividade, listarColunas, quadroPadrao, atualizarCard, obterCard, quadroCompleto, listarArquivados, arquivarCard, desfazerAcao } = await import('./nucleo.js')
 
 type Coluna = { nome: string; id: string }
@@ -131,6 +132,21 @@ describe('Arquivamento e desfazer com concorrência', () => {
 })
 
 afterAll(() => db.close())
+
+describe('Projetos', () => {
+  it('lê projetos legados e conta cada coluna, preserva cards e registra metadados', () => {
+    const c = criarCard({ titulo: 'Projeto legado', projeto: 'legado-test', autor: 'lucas' })
+    const antes = obterCard(c.id)
+    const p = listarProjetos().find(p => p.nome === 'legado-test')!
+    expect(p.colunas.find(c => c.nome === 'A fazer')?.total).toBe(1)
+    expect(p.ultima_atividade).toBeTruthy()
+    atualizarProjeto(p.nome, { favorito: true, cor: '#123456', oculto: true }, 'codex')
+    expect(listarProjetos().some(p => p.nome === 'legado-test')).toBe(false)
+    expect(listarProjetos('nome', true)[0].nome).toBe(p.nome)
+    expect(obterCard(c.id)).toEqual(antes)
+    expect(atividade(10)).toEqual(expect.arrayContaining([expect.objectContaining({ autor: 'codex', acao: 'alterou projeto' })]))
+  })
+})
 
 describe('Filtros combinados', () => {
   it('combina projeto, autor de criação, tag, coluna, revisão e período', () => {

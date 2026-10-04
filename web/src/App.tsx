@@ -9,6 +9,7 @@ import { useAutores } from './components/useAutores'
 import { Arquivados } from './components/Arquivados'
 import { Busca } from './components/Busca'
 import { Filtros } from './components/Filtros'
+import { Projetos } from './components/Projetos'
 import { Aparencia, lerPreferencias, salvarPreferencias, type Preferencias } from './components/Aparencia'
 
 export default function App() {
@@ -240,6 +241,7 @@ export default function App() {
       </header>
       <Busca aoAbrir={setSelecionado} versao={assinatura.current} />
       <Filtros valor={filtros} aoMudar={setFiltros} quadro={quadro} />
+      <Projetos aoEscolher={setProjeto} atual={projeto} versao={assinatura.current} />
       {avisoAcao && <div className="aviso-acao" role="status"><span>{avisoAcao}</span><button onClick={() => setAvisoAcao('')} aria-label="Fechar aviso">×</button></div>}
       {erroPreferencia && <p className="aviso-conexao" role="alert">{erroPreferencia}</p>}
       {erro && <div className="aviso-conexao" role="alert"><strong>Não foi possível atualizar o quadro.</strong> Os últimos dados continuam visíveis. Tentando reconectar… <span>{erro}</span></div>}
