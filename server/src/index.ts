@@ -21,6 +21,7 @@ import {
   listarTags, criarTag, alterarTag, definirTags,
   filtrarCards,
   listarProjetos, atualizarProjeto,
+  listarLembretes, definirLembrete, agirLembrete,
 } from './nucleo.js'
 
 const PORTA = Number(process.env.BOARD_PORT ?? 8078)
@@ -64,6 +65,9 @@ api.get('/cards', (req, res) => res.json(filtrarCards(String(req.query.busca ?? 
   dias: req.query.dias === undefined ? undefined : Number(req.query.dias), periodo: req.query.periodo === 'criado' ? 'criado' : 'alterado', arquivados: req.query.arquivados !== 'false',
 })))
 api.get('/tags', (_req, res) => res.json(listarTags()))
+api.get('/lembretes', (_req, res) => res.json(listarLembretes()))
+api.put('/cards/:id/lembrete', (req, res) => res.json(definirLembrete(req.params.id, req.body.data ?? null, req.body.nota ?? '', autor(req), req.body.revisao)))
+api.post('/cards/:id/lembrete', (req, res) => res.json(agirLembrete(req.params.id, req.body.acao, autor(req), req.body.revisao)))
 api.get('/projetos', (req, res) => res.json(listarProjetos(req.query.ordem === 'nome' ? 'nome' : 'atividade', req.query.ocultos === 'true')))
 api.patch('/projetos/:nome', (req, res) => res.json(atualizarProjeto(req.params.nome, req.body, autor(req))))
 api.post('/tags', (req, res) => res.status(201).json(criarTag(req.body.nome, autor(req), req.body.cor)))

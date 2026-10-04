@@ -10,6 +10,7 @@ import { Arquivados } from './components/Arquivados'
 import { Busca } from './components/Busca'
 import { Filtros } from './components/Filtros'
 import { Projetos } from './components/Projetos'
+import { LembretesTopo } from './components/Lembretes'
 import { Aparencia, lerPreferencias, salvarPreferencias, type Preferencias } from './components/Aparencia'
 
 export default function App() {
@@ -221,6 +222,7 @@ export default function App() {
           {projeto && <span className="filtro__contagem">{visiveis} de {total}</span>}
         </div>
         <div className="menu" ref={menuRef}>
+          <LembretesTopo versao={assinatura.current} aoAbrir={setSelecionado} />
           <button ref={botaoMenuRef} className={`btn menu__botao${erro ? ' menu__botao--alerta' : ''}`} aria-label={erro ? 'Ajustes (conexão interrompida)' : 'Ajustes'} title="Ajustes" aria-haspopup="menu" aria-expanded={menuAberto} aria-controls="menu-ajustes" onClick={() => setMenuAberto(a => !a)} onKeyDown={e => { if (e.key === 'ArrowDown') { e.preventDefault(); setMenuAberto(true) } }}>
             <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="3.5" cy="9" r="1.6" fill="currentColor" /><circle cx="9" cy="9" r="1.6" fill="currentColor" /><circle cx="14.5" cy="9" r="1.6" fill="currentColor" /></svg>
           </button>

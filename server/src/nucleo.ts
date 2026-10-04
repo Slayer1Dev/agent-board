@@ -18,6 +18,7 @@ export type Card = {
   lembrete_nota: string | null
   lembrete_feito_em: string | null
   repeticao_id: string | null
+  lembrete_estado: 'futuro' | 'hoje' | 'atrasado' | 'feito' | null
 }
 
 export type Tag = { id: string; nome: string; cor: string }
@@ -27,7 +28,47 @@ function tagsDoCard(id: string): Tag[] {
 }
 function enriquecer(card: Card): Card {
   const criador = db.prepare("SELECT autor FROM eventos WHERE card_id = ? AND acao = 'criou' ORDER BY rowid LIMIT 1").get(card.id) as { autor: string } | undefined
-  return { ...card, tags: tagsDoCard(card.id), autor: criador?.autor ?? null }
+  return { ...card, tags: tagsDoCard(card.id), autor: criador?.autor ?? null, lembrete_estado: estadoLembrete(card) }
+}
+
+function diaLocal(data: Date) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(data) }
+export function estadoLembrete(card: Pick<Card, 'lembrete_em' | 'lembrete_feito_em'>, agora = new Date()): Card['lembrete_estado'] {
+  if (!card.lembrete_em) return null
+  if (card.lembrete_feito_em) return 'feito'
+  const data = new Date(card.lembrete_em)
+  if (data < agora) return 'atrasado'
+  return diaLocal(data) === diaLocal(agora) ? 'hoje' : 'futuro'
+}
+export function listarLembretes(agora = new Date()) {
+  return pesquisarCards().filter(c => !c.arquivado_em && c.lembrete_em && !c.lembrete_feito_em && diaLocal(new Date(c.lembrete_em)) <= diaLocal(agora))
+    .map(c => ({ ...c, lembrete_estado: estadoLembrete(c, agora) }))
+    .sort((a, b) => a.lembrete_em!.localeCompare(b.lembrete_em!))
+}
+export function definirLembrete(id: string, data: string | null, nota: string, autor: string, revisao?: number): Card {
+  if (data !== null && (!/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(data) || !Number.isFinite(Date.parse(data)))) throw new Error('Informe data ISO com fuso horário.')
+  if (nota.length > 2000) throw new Error('Nota deve ter até 2000 caracteres.')
+  return db.transaction(() => {
+    exigirCard(id, revisao)
+    db.prepare("UPDATE cards SET lembrete_em = ?, lembrete_nota = ?, lembrete_feito_em = NULL, revisao = revisao + 1, atualizado_em = datetime('now') WHERE id = ?").run(data ? new Date(data).toISOString() : null, nota, id)
+    registrar(id, autor, data ? 'definiu lembrete' : 'removeu lembrete', `${data ?? ''} ${nota}`)
+    return exigirCard(id)
+  })()
+}
+export function agirLembrete(id: string, acao: 'feito' | 'hora' | 'amanha' | 'semana', autor: string, revisao?: number, agora = new Date()): Card {
+  return db.transaction(() => {
+    const card = exigirCard(id, revisao)
+    if (!card.lembrete_em) throw new Error('Card sem lembrete.')
+    if (!['feito', 'hora', 'amanha', 'semana'].includes(acao)) throw new Error('Ação de lembrete inválida.')
+    if (acao === 'feito') {
+      db.prepare("UPDATE cards SET lembrete_feito_em = ?, revisao = revisao + 1, atualizado_em = datetime('now') WHERE id = ?").run(agora.toISOString(), id)
+      registrar(id, autor, 'concluiu lembrete', card.lembrete_em)
+    } else {
+      const data = new Date(agora.getTime() + (acao === 'hora' ? 3600000 : acao === 'amanha' ? 86400000 : 7 * 86400000))
+      db.prepare("UPDATE cards SET lembrete_em = ?, lembrete_feito_em = NULL, revisao = revisao + 1, atualizado_em = datetime('now') WHERE id = ?").run(data.toISOString(), id)
+      registrar(id, autor, 'adiou lembrete', `${acao}: ${data.toISOString()}`)
+    }
+    return exigirCard(id)
+  })()
 }
 
 export type Filtros = { projeto?: string; tag?: string; autor?: string; coluna?: string; depende?: boolean; lembrete?: boolean; repetida?: boolean; dias?: number; periodo?: 'criado' | 'alterado'; arquivados?: boolean }

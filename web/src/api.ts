@@ -16,6 +16,7 @@ export type Card = {
   lembrete_nota: string | null
   lembrete_feito_em: string | null
   repeticao_id: string | null
+  lembrete_estado: 'futuro' | 'hoje' | 'atrasado' | 'feito' | null
 }
 export type Tag = { id: string; nome: string; cor: string }
 export type ProjetoResumo = { nome: string; cor: string; favorito: boolean; oculto: boolean; ultima_atividade: string | null; colunas: { nome: string; total: number }[] }
@@ -51,6 +52,9 @@ async function req<T>(caminho: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  lembretes: () => req<Card[]>('/lembretes'),
+  definirLembrete: (id: string, data: string | null, nota: string, revisao: number) => req<Card>(`/cards/${id}/lembrete`, { method: 'PUT', body: JSON.stringify({ data, nota, revisao }) }),
+  agirLembrete: (id: string, acao: string, revisao: number) => req<Card>(`/cards/${id}/lembrete`, { method: 'POST', body: JSON.stringify({ acao, revisao }) }),
   projetos: (ordem: string, ocultos: boolean) => req<ProjetoResumo[]>(`/projetos?ordem=${ordem}&ocultos=${ocultos}`),
   atualizarProjeto: (nome: string, campos: { cor?: string; favorito?: boolean; oculto?: boolean }) => req<ProjetoResumo>(`/projetos/${encodeURIComponent(nome)}`, { method: 'PATCH', body: JSON.stringify(campos) }),
   filtrar: (filtros: Record<string, string>) => req<Card[]>(`/cards?${new URLSearchParams({ ...filtros, arquivados: 'false' })}`),

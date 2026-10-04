@@ -8,6 +8,7 @@ const { pesquisarCards } = await import('./nucleo.js')
 const { criarTag, alterarTag, definirTags, listarTags } = await import('./nucleo.js')
 const { filtrarCards } = await import('./nucleo.js')
 const { listarProjetos, atualizarProjeto } = await import('./nucleo.js')
+const { definirLembrete, agirLembrete, listarLembretes, estadoLembrete } = await import('./nucleo.js')
 const { criarCard, moverCard, comentar, atividade, listarColunas, quadroPadrao, atualizarCard, obterCard, quadroCompleto, listarArquivados, arquivarCard, desfazerAcao } = await import('./nucleo.js')
 
 type Coluna = { nome: string; id: string }
@@ -132,6 +133,32 @@ describe('Arquivamento e desfazer com concorrência', () => {
 })
 
 afterAll(() => db.close())
+
+describe('Lembretes', () => {
+  it('distingue hoje em São Paulo e consulta apenas pendentes, com autoria', () => {
+    const agora = new Date('2026-10-05T01:00:00Z')
+    const c = criarCard({ titulo: 'Lembrar', autor: 'codex' })
+    definirLembrete(c.id, '2026-10-05T02:00:00Z', 'Ainda é dia 4 em SP', 'lucas')
+    expect(estadoLembrete(obterCard(c.id)!, agora)).toBe('hoje')
+    expect(listarLembretes(agora).some(a => a.id === c.id)).toBe(true)
+    definirLembrete(c.id, '2026-10-05T03:00:00Z', '', 'lucas')
+    expect(estadoLembrete(obterCard(c.id)!, agora)).toBe('futuro')
+    expect(listarLembretes(agora).some(a => a.id === c.id)).toBe(false)
+    definirLembrete(c.id, '2026-10-04T23:00:00Z', '', 'lucas')
+    expect(estadoLembrete(obterCard(c.id)!, agora)).toBe('atrasado')
+    agirLembrete(c.id, 'feito', 'astra', undefined, agora)
+    expect(listarLembretes(agora).some(a => a.id === c.id)).toBe(false)
+    agirLembrete(c.id, 'hora', 'astra', undefined, agora)
+    expect(obterCard(c.id)!.lembrete_em).toBe('2026-10-05T02:00:00.000Z')
+    agirLembrete(c.id, 'amanha', 'astra', undefined, agora)
+    expect(obterCard(c.id)!.lembrete_em).toBe('2026-10-06T01:00:00.000Z')
+    agirLembrete(c.id, 'semana', 'astra', undefined, agora)
+    expect(obterCard(c.id)!.lembrete_em).toBe('2026-10-12T01:00:00.000Z')
+    expect(obterCard(c.id)!.eventos).toEqual(expect.arrayContaining([expect.objectContaining({ autor: 'astra', acao: 'adiou lembrete' })]))
+    expect(filtrarCards('', { lembrete: true }).some(a => a.id === c.id)).toBe(true)
+    expect(() => definirLembrete(c.id, '2026-10-04T10:00', '', 'codex')).toThrow('fuso')
+  })
+})
 
 describe('Projetos', () => {
   it('lê projetos legados e conta cada coluna, preserva cards e registra metadados', () => {
