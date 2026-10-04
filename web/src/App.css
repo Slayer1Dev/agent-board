@@ -570,3 +570,16 @@
 .menu__lista { min-width: 290px; }
 .menu__info span { white-space: nowrap; }
 @media (max-width: 760px) { .menu__lista { min-width: min(290px, calc(100vw - 32px)); } }
+
+/* ===== Escala para monitores grandes =====
+   Em telas largas tudo cresce junto (texto, cards, botões), como o zoom do navegador,
+   e as colunas dividem a largura por igual para o quadro nunca rolar para o lado. */
+.app { --escala: 1; }
+@media (min-width: 1700px) { .app { --escala: 1.15; } }
+@media (min-width: 2000px) { .app { --escala: 1.25; } }
+@media (min-width: 2300px) { .app { --escala: 1.35; } }
+@media (min-width: 3000px) { .app { --escala: 1.5; } }
+@media (min-width: 1700px) {
+  .app { zoom: var(--escala); height: calc(100dvh / var(--escala)); }
+  .app:not(.listas-fixas) .coluna { flex: 1 1 0; }
+}
