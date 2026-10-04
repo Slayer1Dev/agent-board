@@ -63,9 +63,30 @@ button { cursor: pointer; }
 }
 :root[data-tema="glass"] {
   color-scheme: dark;
-  --bg: #172d43; --coluna: #182c40e8; --card: #20364bea; --card-hover: #2b465c;
-  --campo: #162a3e; --linha: #ffffff30; --linha-forte: #93afc1;
-  --texto: #f3f7ff; --dim: #c0d0e2; --accent: #bad8ff; --on-accent: #14243b;
-  --painel-forte: #182c40; --r-coluna: 18px; --r-card: 11px;
-  --sombra: 0 3px 12px #00000012, inset 0 1px 0 #ffffff14;
+  --bg: #0d1624;
+  --coluna: rgba(18, 28, 44, 0.65);
+  --card: rgba(26, 40, 60, 0.78);
+  --card-hover: rgba(38, 58, 86, 0.90);
+  --campo: rgba(12, 20, 32, 0.72);
+  --linha: rgba(255, 255, 255, 0.16);
+  --linha-forte: rgba(255, 255, 255, 0.28);
+  --texto: #f4f8ff;
+  --dim: #c5d6ea;
+  --accent: #92c4ff;
+  --on-accent: #0a182b;
+  --perigo: #ff9ea5;
+  --andamento: #9ec5ff;
+  --revisao: #f5d392;
+  --concluido: #a7e2c4;
+  --a-lucas: #a0c9ff;
+  --a-claude: #f7beaa;
+  --a-codex: #a8e4d3;
+  --a-astra: #e7c0f3;
+  --a-agy: #cbc2ff;
+  --a-web: #c5d2e2;
+  --projeto-luz: 82%;
+  --painel-forte: rgba(14, 22, 36, 0.78);
+  --r-coluna: 18px;
+  --r-card: 12px;
+  --sombra: 0 4px 16px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
