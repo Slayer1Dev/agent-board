@@ -17,6 +17,8 @@
 //   node agent-board.mjs projetos
 //   node agent-board.mjs atividade [limite]
 //   node agent-board.mjs lote <arquivo.json>          # [{ titulo, coluna, projeto, descricao }, ...]
+//   node agent-board.mjs backups                      # onde ficam e quais existem
+//   node agent-board.mjs backup                       # faz um backup agora
 //
 // <id> can be the first characters of the id (8 are enough) or a unique part of the title.
 //
@@ -58,7 +60,8 @@ const BASE = String(opcoes.url || env.AGENT_BOARD_URL || env.QUADRO_URL || confi
 const CHAVE = env.AGENT_BOARD_KEY || env.QUADRO_KEY || config.key || '';
 const AUTOR = opcoes.autor || env.AGENT_BOARD_AUTHOR || env.QUADRO_AUTOR || config.author || '';
 
-const LEITURA = new Set(['quadros', 'ver', 'card', 'buscar', 'tags', 'lembretes', 'projetos', 'atividade']);
+// Comandos que não registram autor: as leituras e o backup, que não muda o quadro.
+const LEITURA = new Set(['quadros', 'ver', 'card', 'buscar', 'tags', 'lembretes', 'projetos', 'atividade', 'backups', 'backup']);
 
 // Cabeçalhos HTTP só aceitam ASCII: tira acentos do autor em vez de falhar.
 const asciiAutor = (s) => s.normalize('NFD').replace(/[^\x20-\x7e]/g, '');
@@ -97,6 +100,7 @@ const texto1 = (t, n = 110) => {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
 };
 const etiquetas = (k) => (k.tags?.length ? `  #${k.tags.map((t) => t.nome).join(' #')}` : '');
+const linhaBackup = (b) => `  ${b.criado_em}  ${b.cards < 0 ? 'ILEGÍVEL' : `${b.cards} cards`}  ${Math.ceil(b.bytes / 1024)} KB  ${b.wallpapers} wallpaper(s)  ${b.nome}`;
 const linhaCard = (k) => `  ${curto(k.id)}  ${k.projeto ? `[${k.projeto}] ` : ''}${k.titulo}${etiquetas(k)}`;
 
 async function resolver(ref) {
@@ -240,10 +244,19 @@ const comandos = {
       console.log(`criado ${curto(c.id)}  [${item.coluna || 'A fazer'}] ${c.titulo}`);
     }
   },
+  async backups() {
+    const e = await api('GET', '/backups');
+    console.log(`pasta: ${e.pasta}\n${e.automatico ? `automático a cada ${e.intervalo_horas} h` : 'automático DESLIGADO'} · guarda os ${e.manter} mais recentes`);
+    if (!e.backups.length) console.log('(nenhum backup ainda)');
+    for (const b of e.backups) console.log(linhaBackup(b));
+  },
+  async backup() {
+    console.log(`feito${linhaBackup(await api('POST', '/backups', {}))}`);
+  },
 };
 
 if (!comandos[comando]) {
-  console.log('uso: agent-board.mjs quadros | ver [--quadro Q] | card <id> | criar "Título" [--coluna C] [--projeto P] [--tags a,b] [--descricao T] | mover <id> "Coluna" | comentar <id> "texto" | atualizar <id> [--titulo|--descricao|--projeto] | buscar "texto" [--projeto|--tag|--coluna|--autor|--dias] | tags | tag <id> +nome -nome | lembretes | lembrar <id> "AAAA-MM-DD HH:MM" [--nota T] | projetos | atividade [n] | lote arquivo.json\nopções globais: --autor NOME  --url http://host:porta/api');
+  console.log('uso: agent-board.mjs quadros | ver [--quadro Q] | card <id> | criar "Título" [--coluna C] [--projeto P] [--tags a,b] [--descricao T] | mover <id> "Coluna" | comentar <id> "texto" | atualizar <id> [--titulo|--descricao|--projeto] | buscar "texto" [--projeto|--tag|--coluna|--autor|--dias] | tags | tag <id> +nome -nome | lembretes | lembrar <id> "AAAA-MM-DD HH:MM" [--nota T] | projetos | atividade [n] | lote arquivo.json | backups | backup\nopções globais: --autor NOME  --url http://host:porta/api');
   process.exit(comando ? 2 : 0);
 }
 if (!LEITURA.has(comando) && !AUTOR) {

@@ -2,11 +2,18 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.0] - 2026-10-05
 
 ### Added
 
 - **English and Portuguese interface.** The language is chosen in Settings → Customize and kept in the browser; the first visit follows the browser language. Dates and times follow the chosen language. Default board and column names, history actions and reminder states are translated for display only: the API and the database keep the Portuguese names.
+
+- **Automatic backups.** The server copies its own database (consistent, taken while running) and the wallpapers once a day, verifies the copy and keeps the 14 most recent. Configure with `BOARD_BACKUP_DIR`, `BOARD_BACKUP_HORAS` and `BOARD_BACKUP_MANTER`. The settings menu shows the last backup and has "Back up now"; REST `GET`/`POST /api/backups`, MCP `ver_backups` and `fazer_backup`, CLI `backups` and `backup`.
+- Codex instructions for connecting over MCP.
+
+### Changed
+
+- `npm test` in `server/` runs only the tests in `src`. It used to run the compiled copies in `dist` as well, counting every test twice.
 
 ### Fixed
 
@@ -52,6 +59,6 @@ Notable changes to this project. The format follows [Keep a Changelog](https://k
 
 First public version: one board, columns, cards, comments, history with authorship, REST API and eight MCP tools.
 
-[Unreleased]: https://github.com/Slayer1Dev/agent-board/compare/v0.2.0...HEAD
+[0.3.0]: https://github.com/Slayer1Dev/agent-board/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Slayer1Dev/agent-board/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Slayer1Dev/agent-board/releases/tag/v0.1.0

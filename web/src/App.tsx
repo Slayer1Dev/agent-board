@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import './App.css'
-import { api, type Card, type Evento, type Quadro, type QuadroResumo } from './api'
+import { api, type Card, type EstadoBackups, type Evento, type Quadro, type QuadroResumo } from './api'
 import { definirIdioma, localidade, t, tNome } from './i18n'
 import { Coluna } from './components/Coluna'
 import { PainelCard } from './components/PainelCard'
 import { Atividade } from './components/Atividade'
-import { projetoDoCard } from './components/Identidade'
+import { DataHora, projetoDoCard } from './components/Identidade'
 import { useAutores } from './components/useAutores'
 import { Arquivados } from './components/Arquivados'
 import { Busca } from './components/Busca'
@@ -85,6 +85,24 @@ export default function App() {
     document.addEventListener('keydown', tecla)
     return () => { document.removeEventListener('pointerdown', fora); document.removeEventListener('keydown', tecla) }
   }, [menuAberto, fecharMenu])
+  // Estado dos backups: lido quando o menu abre, que é onde ele aparece.
+  const [backups, setBackups] = useState<EstadoBackups | null>(null)
+  const [fazendoBackup, setFazendoBackup] = useState(false)
+  useEffect(() => {
+    if (!menuAberto) return
+    let ativo = true
+    api.backups().then(b => { if (ativo) setBackups(b) }).catch(() => { /* servidor antigo ou fora do ar: o menu só não mostra a linha */ })
+    return () => { ativo = false }
+  }, [menuAberto])
+  async function backupAgora() {
+    setFazendoBackup(true)
+    try {
+      const b = await api.fazerBackup()
+      setBackups(await api.backups())
+      setAvisoAcao(t('Backup feito: {n} cards guardados.', { n: b.cards }))
+    } catch (e) { setAvisoAcao((e as Error).message) }
+    finally { setFazendoBackup(false) }
+  }
   function teclasDoMenu(e: ReactKeyboardEvent<HTMLDivElement>) {
     if (e.key === 'Tab') { fecharMenu(); return }
     if (!(e.target as HTMLElement).matches('[role="menuitem"]')) return
@@ -271,7 +289,9 @@ export default function App() {
                 <button role="menuitem" className="menu__item" disabled={!acoes.length || desfazendo} onClick={() => { fecharMenu(); void desfazer() }}><span>{desfazendo ? t('Desfazendo…') : t('Desfazer')}</span><kbd>Ctrl+Z</kbd></button>
                 <button role="menuitem" className="menu__item" onClick={() => { fecharMenu(); setArquivadosAbertos(true) }}>{t('Arquivados')}</button>
                 <button role="menuitem" className="menu__item" onClick={() => { fecharMenu(); setPersonalizando(true) }}><span>{t('Personalizar')}</span><kbd>{preferencias.idioma === 'pt' ? 'PT' : 'EN'}</kbd></button>
+                <button role="menuitem" className="menu__item" disabled={fazendoBackup} onClick={() => void backupAgora()}>{fazendoBackup ? t('Fazendo backup…') : t('Fazer backup agora')}</button>
                 <div className="menu__separador" role="separator" />
+                {backups && <div className="menu__info"><span className={backups.automatico ? undefined : 'conexao conexao--erro'}>{backups.ultimo ? <>{t('Último backup:')} <DataHora valor={backups.ultimo.criado_em} /></> : t('Nenhum backup ainda')}{!backups.automatico && ` · ${t('automático desligado')}`}</span></div>}
                 <div className="menu__info"><span className={`conexao${erro ? ' conexao--erro' : ''}`}>{erro ? t('Conexão interrompida') : t('Atualização automática ativa')}</span><span>{Object.keys(filtros).length ? t('{n} de {total} cards', { n: visiveis, total }) : t('{total} cards', { total })}</span></div>
               </div>
             )}

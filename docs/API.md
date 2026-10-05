@@ -68,6 +68,17 @@ curl -fsS "$QUADRO_API/cards/CARD/lembrete" -X PUT -H 'x-autor: codex' -H 'Conte
 curl -fsS "$QUADRO_API/wallpapers" -H 'x-autor: codex' -H 'Content-Type: application/octet-stream' --data-binary @/caminho/imagem.png
 ```
 
+## Backups
+
+- `GET /api/backups` devolve `{ pasta, intervalo_horas, manter, automatico, ultimo, backups }`. Cada backup: `{ nome, criado_em, bytes, cards, wallpapers }`; `cards: -1` quer dizer que a cópia não abriu.
+- `POST /api/backups` faz um backup agora e devolve o backup criado (201). Pedidos simultâneos recebem o mesmo backup.
+- MCP: `ver_backups` e `fazer_backup`, sem parâmetros. Backup não registra autor nem entra no histórico: ele não muda o quadro.
+
+```bash
+curl -s http://127.0.0.1:8078/api/backups
+curl -s -X POST http://127.0.0.1:8078/api/backups
+```
+
 ## Ferramentas MCP
 
 Cada linha é um exemplo de `tools/call`: use `name` com o nome indicado e `arguments` com o JSON da segunda coluna. Endpoint `/mcp` continua stateless e exige a autenticação configurada.

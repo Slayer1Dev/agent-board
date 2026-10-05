@@ -52,6 +52,13 @@ claude mcp add --scope user --transport http agent-board http://127.0.0.1:8078/m
 # with a key:  --header "Authorization: Bearer YOUR_KEY"
 ```
 
+Codex:
+
+```bash
+codex mcp add agent-board --url http://127.0.0.1:8078/mcp
+# with a key:  --bearer-token-env-var BOARD_API_KEY
+```
+
 **CLI**, for agents without MCP or for your own terminal:
 
 ```bash
@@ -82,6 +89,18 @@ The full list of routes and tools, with an example for each, is in [docs/API.md]
 | `BOARD_CORS_ORIGENS` | *(empty)* | Browser origins allowed to call the API from another address |
 | `BOARD_PERMITIR_ABERTO` | *(empty)* | `1` lets the server listen outside localhost without a key |
 | `BOARD_FUSO` | `America/Sao_Paulo` | Time zone used to decide whether a reminder is "today" |
+| `BOARD_BACKUP_DIR` | `backups` inside `BOARD_DADOS` | Where automatic backups are written |
+| `BOARD_BACKUP_HORAS` | `24` | Hours between automatic backups. `0` turns them off |
+| `BOARD_BACKUP_MANTER` | `14` | How many backups to keep |
+
+## Backups
+
+The server backs itself up: no cron needed. Once a day (and on the first start) it writes a folder `board-<date>` with a consistent copy of the database, taken while the server is running, plus the wallpapers. It checks the copy opens and passes SQLite's integrity check before keeping it, and deletes all but the 14 most recent.
+
+- **Where:** `backups/` next to the database by default. Point `BOARD_BACKUP_DIR` at a folder that your machine's own backup already covers, or at another disk: a backup on the same disk does not survive that disk.
+- **See them:** the settings menu shows the last one; `node cli/agent-board.mjs backups` lists them; agents have `ver_backups`.
+- **Make one now:** "Back up now" in the settings menu, `node cli/agent-board.mjs backup`, or the `fazer_backup` tool. Worth doing before loading many cards at once.
+- **Restore:** stop the server, copy `board.db` (and `wallpapers/`) from the backup folder over the ones in use, remove any `board.db-wal` and `board.db-shm` left beside the old file, start the server.
 
 ## Security model
 

@@ -50,6 +50,13 @@ claude mcp add --scope user --transport http agent-board http://127.0.0.1:8078/m
 # com chave:  --header "Authorization: Bearer SUA_CHAVE"
 ```
 
+Codex:
+
+```bash
+codex mcp add agent-board --url http://127.0.0.1:8078/mcp
+# com chave:  --bearer-token-env-var BOARD_API_KEY
+```
+
 **CLI**, para agentes sem MCP ou para o seu próprio terminal:
 
 ```bash
@@ -80,6 +87,18 @@ A lista completa de rotas e ferramentas, com um exemplo de cada, está em [docs/
 | `BOARD_CORS_ORIGENS` | *(vazio)* | Origens de navegador autorizadas a chamar a API de outro endereço |
 | `BOARD_PERMITIR_ABERTO` | *(vazio)* | `1` deixa o servidor escutar fora de localhost sem chave |
 | `BOARD_FUSO` | `America/Sao_Paulo` | Fuso usado para decidir se um lembrete é "de hoje" |
+| `BOARD_BACKUP_DIR` | `backups` dentro de `BOARD_DADOS` | Onde os backups automáticos são gravados |
+| `BOARD_BACKUP_HORAS` | `24` | Horas entre os backups automáticos. `0` desliga |
+| `BOARD_BACKUP_MANTER` | `14` | Quantos backups guardar |
+
+## Backups
+
+O servidor faz o próprio backup: não precisa de cron. Uma vez por dia (e na primeira vez que sobe) ele grava uma pasta `board-<data>` com uma cópia consistente do banco, tirada com o servidor no ar, e os wallpapers. Antes de guardar, confere se a cópia abre e passa na verificação de integridade do SQLite. Ficam os 14 mais recentes.
+
+- **Onde:** por padrão em `backups/`, ao lado do banco. Aponte `BOARD_BACKUP_DIR` para uma pasta que o backup da sua máquina já cobre, ou para outro disco: backup no mesmo disco não sobrevive a esse disco.
+- **Ver:** o menu de ajustes mostra o último; `node cli/agent-board.mjs backups` lista todos; os agentes têm `ver_backups`.
+- **Fazer um agora:** "Fazer backup agora" no menu de ajustes, `node cli/agent-board.mjs backup`, ou a ferramenta `fazer_backup`. Vale antes de uma carga de muitos cards.
+- **Restaurar:** pare o servidor, copie `board.db` (e `wallpapers/`) da pasta do backup por cima dos que estão em uso, apague `board.db-wal` e `board.db-shm` que tenham ficado ao lado do arquivo antigo, e suba o servidor.
 
 ## Modelo de segurança
 

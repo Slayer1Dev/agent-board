@@ -21,6 +21,7 @@ import {
   resumoQuadros, criarQuadro,
   listarWallpapers, obterWallpaper, salvarWallpaper, apagarWallpaper, aparenciaCompartilhada, escolherWallpaper,
 } from './nucleo.js'
+import { estadoBackups, fazerBackup } from './backup.js'
 
 const texto = (valor: unknown) => ({
   content: [{ type: 'text' as const, text: JSON.stringify(valor, null, 2) }],
@@ -43,7 +44,7 @@ const AUTOR = z
   .describe('Quem está agindo — identifique sua sessão (ex.: "claude", "codex", "agy")')
 
 export function criarServidorMcp() {
-  const s = new McpServer({ name: 'agent-board', version: '0.1.0' })
+  const s = new McpServer({ name: 'agent-board', version: '0.3.0' })
   s.registerTool('listar_wallpapers', { inputSchema: {} }, async () => texto(listarWallpapers()))
   s.registerTool('obter_wallpaper', { inputSchema: { id: z.string() } }, async ({ id }) => { try { const w = obterWallpaper(id); return texto({ tipo: w.tipo, base64: w.bytes.toString('base64') }) } catch (e) { return erro(e) } })
   s.registerTool('enviar_wallpaper', { inputSchema: { base64: z.string().max(12 * 1024 * 1024), autor: AUTOR } }, async ({ base64, autor }) => { try { return texto(salvarWallpaper(Buffer.from(base64, 'base64'), autor)) } catch (e) { return erro(e) } })
@@ -70,6 +71,17 @@ export function criarServidorMcp() {
     description: 'Pesquisa título, descrição, projeto e comentários, incluindo arquivados.',
     inputSchema: { busca: z.string().optional() },
   }, async ({ busca }) => { try { return texto(pesquisarCards(busca)) } catch (e) { return erro(e) } })
+
+  s.registerTool('ver_backups', {
+    title: 'Ver backups',
+    description: 'Mostra onde ficam os backups do quadro, de quanto em quanto tempo são feitos e a lista dos existentes (o mais novo primeiro). Use para conferir se o último backup é recente.',
+    inputSchema: {},
+  }, async () => { try { return texto(estadoBackups()) } catch (e) { return erro(e) } })
+  s.registerTool('fazer_backup', {
+    title: 'Fazer backup agora',
+    description: 'Faz um backup do quadro agora (banco e wallpapers), sem parar o servidor. Use antes de uma mudança grande, como uma carga de muitos cards.',
+    inputSchema: {},
+  }, async () => { try { return texto(await fazerBackup()) } catch (e) { return erro(e) } })
 
   s.registerTool('listar_quadros', {
     title: 'Listar quadros',

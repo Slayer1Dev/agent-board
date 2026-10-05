@@ -29,6 +29,8 @@ export type ProjetoResumo = { nome: string; cor: string; favorito: boolean; ocul
 export type Coluna = { id: string; nome: string; posicao: number; cards: Card[] }
 export type Quadro = { id: string; nome: string; colunas: Coluna[] }
 export type QuadroResumo = { id: string; nome: string; criado_em: string; cards: number }
+export type Backup = { nome: string; criado_em: string; bytes: number; cards: number; wallpapers: number }
+export type EstadoBackups = { pasta: string; intervalo_horas: number; manter: number; automatico: boolean; ultimo: Backup | null; backups: Backup[] }
 export type Evento = {
   autor: string
   acao: string
@@ -87,6 +89,8 @@ export const api = {
   criarQuadro: (nome: string) => req<QuadroResumo>('/quadros', { method: 'POST', body: JSON.stringify({ nome }) }),
   renomearQuadro: (id: string, nome: string) => req<QuadroResumo>(`/quadros/${id}`, { method: 'PATCH', body: JSON.stringify({ nome }) }),
   apagarQuadro: (id: string) => req<{ ok: true }>(`/quadros/${id}`, { method: 'DELETE' }),
+  backups: () => req<EstadoBackups>('/backups'),
+  fazerBackup: () => req<Backup>('/backups', { method: 'POST', body: '{}' }),
   atividade: (limite = 30) => req<Evento[]>(`/atividade?limite=${limite}`),
   card: (id: string) => req<Card & { eventos: Evento[] }>(`/cards/${id}`),
 

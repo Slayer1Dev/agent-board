@@ -104,6 +104,12 @@ const EN: Record<string, string> = {
   '{n} de {total} cards': '{n} of {total} cards',
   '{total} cards': '{total} cards',
   'Fechar aviso': 'Dismiss notice',
+  'Fazer backup agora': 'Back up now',
+  'Fazendo backup…': 'Backing up…',
+  'Backup feito: {n} cards guardados.': 'Backup done: {n} cards saved.',
+  'Último backup:': 'Last backup:',
+  'Nenhum backup ainda': 'No backup yet',
+  'automático desligado': 'automatic backup off',
 
   // Ações que podem ser desfeitas
   '{acao}. Você pode desfazer pelo botão ou Ctrl+Z.': '{acao}. You can undo with the button or Ctrl+Z.',

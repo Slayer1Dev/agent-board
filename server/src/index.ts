@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { semear } from './db.js'
 import { criarServidorMcp } from './mcp.js'
+import { agendarBackups, estadoBackups, fazerBackup, INTERVALO_HORAS, PASTA_BACKUP } from './backup.js'
 import {
   quadroCompleto,
   obterCard,
@@ -99,6 +100,11 @@ api.post('/quadros', (req, res) => res.status(201).json(criarQuadro(req.body?.no
 api.patch('/quadros/:id', (req, res) => res.json(renomearQuadro(req.params.id, req.body?.nome, autor(req))))
 api.delete('/quadros/:id', (req, res) => res.json(removerQuadro(req.params.id, autor(req))))
 api.get('/atividade', (req, res) => res.json(atividade(Number(req.query.limite ?? 50))))
+api.get('/backups', (_req, res) => res.json(estadoBackups()))
+api.post('/backups', async (_req, res) => {
+  try { res.status(201).json(await fazerBackup()) }
+  catch (e) { res.status(500).json({ erro: `backup falhou: ${(e as Error).message}` }) }
+})
 
 api.get('/arquivados', (_req, res) => res.json(listarArquivados()))
 api.get('/cards', (req, res) => res.json(filtrarCards(String(req.query.busca ?? ''), {
@@ -230,4 +236,7 @@ app.listen(PORTA, HOST, () => {
     console.log('  ⚠️  BOARD_API_KEY não definida — servidor SEM autenticação.')
     console.log(ABERTO ? '  ⚠️  BOARD_PERMITIR_ABERTO=1: qualquer um que alcance esta porta lê e escreve.' : '      Aceita só chamadas feitas a este próprio endereço (localhost).')
   }
+  console.log(agendarBackups()
+    ? `  Backup automático a cada ${INTERVALO_HORAS} h em ${PASTA_BACKUP}`
+    : '  ⚠️  Backup automático desligado (BOARD_BACKUP_HORAS=0).')
 })

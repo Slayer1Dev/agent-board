@@ -11,6 +11,7 @@ backups/
 wallpapers/
 .integracao-*/
 .teste-wallpapers-*/
+.teste-backup-*/
 RELATORIO.md
 
 # Configuração de implantação de cada um (a partir de web/vite.proxy.example.mjs)

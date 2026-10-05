@@ -4,7 +4,7 @@ import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { homedir } from 'node:os'
 
-const CAMINHO = process.env.BOARD_DB ?? `${homedir()}/.agent-board/board.db`
+export const CAMINHO = process.env.BOARD_DB ?? `${homedir()}/.agent-board/board.db`
 export const PASTA_DADOS = process.env.BOARD_DADOS ?? dirname(CAMINHO)
 
 mkdirSync(dirname(CAMINHO), { recursive: true })
