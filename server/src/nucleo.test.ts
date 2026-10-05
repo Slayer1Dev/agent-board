@@ -11,6 +11,7 @@ const { db, semear } = await import('./db.js')
 const { pesquisarCards } = await import('./nucleo.js')
 const { criarTag, alterarTag, definirTags, listarTags } = await import('./nucleo.js')
 const { filtrarCards } = await import('./nucleo.js')
+const { criarQuadro, renomearQuadro, removerQuadro, resumoQuadros } = await import('./nucleo.js')
 const { listarProjetos, atualizarProjeto } = await import('./nucleo.js')
 const { definirLembrete, agirLembrete, listarLembretes, estadoLembrete } = await import('./nucleo.js')
 const { definirRepeticao, agirRepeticao, proximoPeriodo } = await import('./nucleo.js')
@@ -135,6 +136,41 @@ describe('Arquivamento e desfazer com concorrência', () => {
     const anterior = obterCard(c.id)
     expect(() => moverCard(c.id, { colunaId: 'inexistente' }, 'web')).toThrow()
     expect(obterCard(c.id)).toEqual(anterior)
+  })
+})
+
+describe('Vários quadros', () => {
+  it('cria quadro com as colunas padrão e mantém os cards separados', () => {
+    const q = criarQuadro('Casa', 'test')
+    expect(listarColunas(q.id).map(c => c.nome)).toEqual(['A fazer', 'Em andamento', 'Revisão', 'Concluído'])
+    const card = criarCard({ titulo: 'Só no quadro Casa', coluna: 'A fazer', quadro: 'casa', autor: 'test' })
+    expect(listarColunas(q.id).some(c => c.id === card.coluna_id)).toBe(true)
+    expect(quadroCompleto(q.id).colunas.flatMap(c => c.cards).map(c => c.id)).toEqual([card.id])
+    expect(quadroCompleto().colunas.flatMap(c => c.cards).some(c => c.id === card.id)).toBe(false)
+    expect(filtrarCards('', { quadro: q.id }).map(c => c.id)).toEqual([card.id])
+    expect(resumoQuadros().find(r => r.id === q.id)?.cards).toBe(1)
+  })
+
+  it('move pelo nome da coluna dentro do quadro do próprio card', () => {
+    const q = criarQuadro('Estudos', 'test')
+    const card = criarCard({ titulo: 'Ler capítulo', quadro: q.id, autor: 'test' })
+    const movido = moverCard(card.id, { coluna: 'Concluído' }, 'test')
+    const destino = listarColunas(q.id).find(c => c.nome === 'Concluído')!
+    expect(movido.coluna_id).toBe(destino.id)
+  })
+
+  it('valida nomes e só apaga quadro vazio que não seja o único', () => {
+    expect(() => criarQuadro('  ', 'test')).toThrow('entre 1 e 60')
+    expect(() => criarQuadro('CASA', 'test')).toThrow('Já existe')
+    expect(() => criarCard({ titulo: 'x', coluna: 'A fazer', quadro: 'não existe', autor: 'test' })).toThrow('não existe')
+    const vazio = criarQuadro('Temporário', 'test')
+    expect(renomearQuadro(vazio.id, 'Provisório', 'test').nome).toBe('Provisório')
+    expect(() => renomearQuadro(vazio.id, 'Casa', 'test')).toThrow('Já existe')
+    const comCard = resumoQuadros().find(r => r.nome === 'Casa')!
+    expect(() => removerQuadro(comCard.id, 'test')).toThrow('ainda tem 1 card')
+    expect(removerQuadro(vazio.id, 'test')).toEqual({ ok: true })
+    expect(resumoQuadros().some(r => r.id === vazio.id)).toBe(false)
+    expect(atividade(20).some(e => (e as Evento).acao === 'apagou quadro' && (e as Evento).autor === 'test')).toBe(true)
   })
 })
 

@@ -13,7 +13,6 @@ import {
   removerCard,
   atividade,
   criarColuna,
-  quadroPadrao,
   listarArquivados,
   arquivarCard,
   desfazerAcao,
@@ -23,6 +22,7 @@ import {
   listarProjetos, atualizarProjeto,
   listarLembretes, definirLembrete, agirLembrete,
   definirRepeticao, agirRepeticao,
+  resolverQuadro, resumoQuadros, criarQuadro, renomearQuadro, removerQuadro,
   listarWallpapers, obterWallpaper, salvarWallpaper, apagarWallpaper, aparenciaCompartilhada, escolherWallpaper,
 } from './nucleo.js'
 
@@ -57,12 +57,16 @@ app.get('/saude', (_req, res) => res.json({ ok: true }))
 const api = express.Router()
 api.use(autenticar)
 
-api.get('/quadro', (_req, res) => res.json(quadroCompleto()))
+api.get('/quadro', (req, res) => res.json(quadroCompleto(req.query.id?.toString() || req.query.quadro?.toString())))
+api.get('/quadros', (_req, res) => res.json(resumoQuadros()))
+api.post('/quadros', (req, res) => res.status(201).json(criarQuadro(req.body?.nome, autor(req))))
+api.patch('/quadros/:id', (req, res) => res.json(renomearQuadro(req.params.id, req.body?.nome, autor(req))))
+api.delete('/quadros/:id', (req, res) => res.json(removerQuadro(req.params.id, autor(req))))
 api.get('/atividade', (req, res) => res.json(atividade(Number(req.query.limite ?? 50))))
 
 api.get('/arquivados', (_req, res) => res.json(listarArquivados()))
 api.get('/cards', (req, res) => res.json(filtrarCards(String(req.query.busca ?? ''), {
-  projeto: req.query.projeto?.toString(), tag: req.query.tag?.toString(), autor: req.query.autor?.toString(), coluna: req.query.coluna?.toString(),
+  quadro: req.query.quadro?.toString(), projeto: req.query.projeto?.toString(), tag: req.query.tag?.toString(), autor: req.query.autor?.toString(), coluna: req.query.coluna?.toString(),
   depende: req.query.depende === 'true', lembrete: req.query.lembrete === 'true', repetida: req.query.repetida === 'true',
   dias: req.query.dias === undefined ? undefined : Number(req.query.dias), periodo: req.query.periodo === 'criado' ? 'criado' : 'alterado', arquivados: req.query.arquivados !== 'false',
 })))
@@ -81,7 +85,7 @@ api.put('/cards/:id/repeticao', (req, res) => res.json(definirRepeticao(req.para
 api.post('/cards/:id/repeticao', (req, res) => res.json(agirRepeticao(req.params.id, req.body.estado, autor(req), req.body.revisao)))
 api.put('/cards/:id/lembrete', (req, res) => res.json(definirLembrete(req.params.id, req.body.data ?? null, req.body.nota ?? '', autor(req), req.body.revisao)))
 api.post('/cards/:id/lembrete', (req, res) => res.json(agirLembrete(req.params.id, req.body.acao, autor(req), req.body.revisao)))
-api.get('/projetos', (req, res) => res.json(listarProjetos(req.query.ordem === 'nome' ? 'nome' : 'atividade', req.query.ocultos === 'true')))
+api.get('/projetos', (req, res) => res.json(listarProjetos(req.query.ordem === 'nome' ? 'nome' : 'atividade', req.query.ocultos === 'true', req.query.quadro?.toString())))
 api.patch('/projetos/:nome', (req, res) => res.json(atualizarProjeto(req.params.nome, req.body, autor(req))))
 api.post('/tags', (req, res) => res.status(201).json(criarTag(req.body.nome, autor(req), req.body.cor)))
 api.patch('/tags/:id', (req, res) => res.json(alterarTag(req.params.id, autor(req), req.body.nome)))
@@ -95,9 +99,9 @@ api.get('/cards/:id', (req, res) => {
 
 api.post('/cards', (req, res) => {
   try {
-    const { titulo, coluna, colunaId, descricao, projeto, tags } = req.body ?? {}
+    const { titulo, coluna, colunaId, descricao, projeto, tags, quadro } = req.body ?? {}
     if (!titulo?.trim()) return res.status(400).json({ erro: 'título é obrigatório' })
-    res.status(201).json(criarCard({ titulo, coluna, colunaId, descricao, projeto, tags, autor: autor(req) }))
+    res.status(201).json(criarCard({ titulo, coluna, colunaId, descricao, projeto, tags, quadro, autor: autor(req) }))
   } catch (e) {
     res.status(400).json({ erro: (e as Error).message })
   }
@@ -153,7 +157,7 @@ api.post('/colunas', (req, res) => {
   try {
     const { nome } = req.body ?? {}
     if (!nome?.trim()) return res.status(400).json({ erro: 'nome é obrigatório' })
-    res.status(201).json(criarColuna(quadroPadrao().id, nome, autor(req)))
+    res.status(201).json(criarColuna(resolverQuadro(req.body?.quadro).id, nome, autor(req)))
   } catch (e) {
     res.status(400).json({ erro: (e as Error).message })
   }

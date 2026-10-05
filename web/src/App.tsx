@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import './App.css'
-import { api, type Card, type Evento, type Quadro } from './api'
+import { api, type Card, type Evento, type Quadro, type QuadroResumo } from './api'
 import { Coluna } from './components/Coluna'
 import { PainelCard } from './components/PainelCard'
 import { Atividade } from './components/Atividade'
@@ -11,11 +11,15 @@ import { Busca } from './components/Busca'
 import { Filtros, FiltrosAtivos } from './components/Filtros'
 import { useTags } from './components/useTags'
 import { Projetos } from './components/Projetos'
+import { Quadros } from './components/Quadros'
 import { LembretesTopo } from './components/Lembretes'
 import { Aparencia, lerPreferencias, salvarPreferencias, type Preferencias } from './components/Aparencia'
 
 export default function App() {
   const [quadro, setQuadro] = useState<Quadro | null>(null)
+  // Quadro aberto: fica guardado neste navegador. Vazio = o quadro principal.
+  const [quadroId, setQuadroId] = useState(() => { try { return localStorage.getItem('agent-board:quadro') || '' } catch { return '' } })
+  const [quadros, setQuadros] = useState<QuadroResumo[]>([])
   const [eventos, setEventos] = useState<Evento[]>([])
   const [erro, setErro] = useState<string | null>(null)
   const [selecionado, setSelecionado] = useState<string | null>(null)
@@ -49,7 +53,8 @@ export default function App() {
   useEffect(() => {
     history.replaceState(null, '', `${location.pathname}${Object.keys(filtros).length ? '?' + new URLSearchParams(filtros) : ''}${location.hash}`)
     let ativo = true
-    api.filtrar(filtros).then(cards => { if (ativo) setIdsFiltrados(new Set(cards.map(c => c.id))) }).catch(e => { if (ativo) setErro((e as Error).message) })
+    if (!quadro) return
+    api.filtrar(filtros, quadro.id).then(cards => { if (ativo) setIdsFiltrados(new Set(cards.map(c => c.id))) }).catch(e => { if (ativo) setErro((e as Error).message) })
     return () => { ativo = false }
   }, [filtros, quadro])
   useEffect(() => {
@@ -95,9 +100,20 @@ export default function App() {
   const assinatura = useRef('')
   const tags = useTags(assinatura.current)
 
+  const escolherQuadro = useCallback((id: string) => {
+    try { if (id) localStorage.setItem('agent-board:quadro', id); else localStorage.removeItem('agent-board:quadro') } catch { /* sem armazenamento: vale só nesta aba */ }
+    assinatura.current = ''
+    setSelecionado(null)
+    setQuadroId(id)
+  }, [])
+
   const carregar = useCallback(async () => {
     try {
-      const [q, a, aparencia] = await Promise.all([api.quadro(), api.atividade(30), api.aparencia()])
+      const [q, a, aparencia, lista] = await Promise.all([
+        // Se o quadro guardado não existe mais (foi apagado em outra sessão), volta ao principal.
+        api.quadro(quadroId).catch(e => { if (quadroId) escolherQuadro(''); throw e }),
+        api.atividade(30), api.aparencia(), api.quadros(),
+      ])
       if (!aparencia.wallpaper && wallpaperLegado.current.startsWith('data:image/')) {
         const legado = wallpaperLegado.current
         wallpaperLegado.current = ''
@@ -111,17 +127,18 @@ export default function App() {
         wallpaperId.current = aparencia.wallpaper; wallpaperUrl.current = url
         setPreferencias(p => ({ ...p, wallpaper: url }))
       }
-      const nova = JSON.stringify([q, a])
+      const nova = JSON.stringify([q, a, lista])
       if (nova !== assinatura.current) {
         assinatura.current = nova
         setQuadro(q)
         setEventos(a)
+        setQuadros(lista)
       }
       setErro(null)
     } catch (e) {
       setErro((e as Error).message)
     }
-  }, [])
+  }, [quadroId, escolherQuadro])
 
   useEffect(() => {
     carregar()
@@ -238,7 +255,7 @@ export default function App() {
         <Busca aoAbrir={setSelecionado} versao={assinatura.current} />
         <div className="topo__acoes">
           <Filtros valor={filtros} aoMudar={setFiltros} quadro={quadro} tags={tags} />
-          <Projetos aoEscolher={setProjeto} atual={projeto} versao={assinatura.current} semProjeto={projetos.includes('')} />
+          <Projetos aoEscolher={setProjeto} atual={projeto} versao={assinatura.current} semProjeto={projetos.includes('')} quadro={quadro.id} />
           <LembretesTopo versao={assinatura.current} aoAbrir={setSelecionado} />
           <div className="menu" ref={menuRef}>
             <button ref={botaoMenuRef} className={`btn menu__botao${erro ? ' menu__botao--alerta' : ''}`} aria-label={erro ? 'Ajustes (conexão interrompida)' : 'Ajustes'} title="Ajustes" aria-haspopup="menu" aria-expanded={menuAberto} aria-controls="menu-ajustes" onClick={() => setMenuAberto(a => !a)} onKeyDown={e => { if (e.key === 'ArrowDown') { e.preventDefault(); setMenuAberto(true) } }}>
@@ -277,7 +294,10 @@ export default function App() {
         ))}
       </main>
 
-      <Atividade eventos={eventos} />
+      <Atividade
+        eventos={eventos}
+        inicio={<Quadros quadros={quadros} atual={quadro.id} aoEscolher={escolherQuadro} aoMudar={async () => { assinatura.current = ''; await carregar() }} />}
+      />
 
       {arquivadosAbertos && <Arquivados aoFechar={() => setArquivadosAbertos(false)} aoRestaurar={card => registrarAcao(card, 'Card restaurado')} aoAbrir={id => { setArquivadosAbertos(false); setSelecionado(id) }} />}
       {personalizando && <Aparencia valor={preferencias} aoMudar={mudarAparencia} aoFechar={() => setPersonalizando(false)} />}

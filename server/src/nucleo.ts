@@ -145,10 +145,10 @@ export function agirLembrete(id: string, acao: 'feito' | 'hora' | 'amanha' | 'se
   })()
 }
 
-export type Filtros = { projeto?: string; tag?: string; autor?: string; coluna?: string; depende?: boolean; lembrete?: boolean; repetida?: boolean; dias?: number; periodo?: 'criado' | 'alterado'; arquivados?: boolean }
+export type Filtros = { quadro?: string; projeto?: string; tag?: string; autor?: string; coluna?: string; depende?: boolean; lembrete?: boolean; repetida?: boolean; dias?: number; periodo?: 'criado' | 'alterado'; arquivados?: boolean }
 export function filtrarCards(busca = '', filtros: Filtros = {}) {
   if (filtros.dias !== undefined && (!Number.isInteger(filtros.dias) || filtros.dias < 1 || filtros.dias > 36500)) throw new Error('Dias deve ser um inteiro entre 1 e 36500.')
-  return pesquisarCards(busca).filter(c => {
+  return pesquisarCards(busca, filtros.quadro).filter(c => {
     if (filtros.arquivados === false && c.arquivado_em) return false
     if (filtros.projeto && (filtros.projeto === '__sem__' ? !!c.projeto : c.projeto !== filtros.projeto)) return false
     if (filtros.tag && !c.tags.some(t => t.id === filtros.tag || t.nome === filtros.tag)) return false
@@ -329,9 +329,9 @@ export function apagarWallpaper(id: string, autor: string) {
 }
 
 export type Projeto = { nome: string; cor: string; favorito: boolean; oculto: boolean; ultima_atividade: string | null; colunas: { nome: string; total: number }[] }
-export function listarProjetos(ordem: 'atividade' | 'nome' = 'atividade', incluirOcultos = false): Projeto[] {
+export function listarProjetos(ordem: 'atividade' | 'nome' = 'atividade', incluirOcultos = false, quadro?: string): Projeto[] {
   const nomes = db.prepare("SELECT projeto AS nome FROM cards WHERE projeto IS NOT NULL AND projeto <> '' UNION SELECT nome FROM projetos").all() as { nome: string }[]
-  const colunas = listarColunas(quadroPadrao().id)
+  const colunas = listarColunas(resolverQuadro(quadro).id)
   const projetos = nomes.map(({ nome }) => {
     const meta = db.prepare('SELECT * FROM projetos WHERE nome = ?').get(nome) as { cor: string; favorito: number; oculto: number; atualizado_em: string } | undefined
     const ultima = db.prepare('SELECT MAX(atualizado_em) AS data FROM cards WHERE projeto = ?').get(nome) as { data: string | null }
@@ -356,9 +356,10 @@ export function atualizarProjeto(nome: string, campos: { cor?: string; favorito?
   })()
 }
 
-export function pesquisarCards(busca = '') {
+export function pesquisarCards(busca = '', quadro?: string) {
   const termo = busca.trim().toLocaleLowerCase('pt-BR')
-  const cards = db.prepare(`SELECT c.*, col.nome AS coluna FROM cards c JOIN colunas col ON col.id = c.coluna_id ORDER BY c.atualizado_em DESC, c.id`).all() as (Card & { coluna: string })[]
+  const alvo = quadro ? resolverQuadro(quadro).id : null
+  const cards = db.prepare(`SELECT c.*, col.nome AS coluna FROM cards c JOIN colunas col ON col.id = c.coluna_id WHERE (? IS NULL OR col.quadro_id = ?) ORDER BY c.atualizado_em DESC, c.id`).all(alvo, alvo) as (Card & { coluna: string })[]
   return cards.flatMap(card => {
     const comentarios = db.prepare("SELECT detalhe FROM eventos WHERE card_id = ? AND acao = 'comentou' ORDER BY rowid").all(card.id) as { detalhe: string }[]
     const campos = [card.titulo, card.descricao, card.projeto ?? '', ...tagsDoCard(card.id).map(t => t.nome), ...comentarios.map(c => c.detalhe)]
@@ -373,13 +374,78 @@ export function pesquisarCards(busca = '') {
 /** Operações usadas tanto pela API REST quanto pelas ferramentas MCP. */
 
 export function listarQuadros(): Quadro[] {
-  return db.prepare('SELECT * FROM quadros ORDER BY criado_em').all() as Quadro[]
+  return db.prepare('SELECT * FROM quadros ORDER BY criado_em, rowid').all() as Quadro[]
 }
 
+/** O quadro mais antigo. É o que vale quando ninguém diz qual quadro quer. */
 export function quadroPadrao(): Quadro {
-  const q = db.prepare('SELECT * FROM quadros ORDER BY criado_em LIMIT 1').get() as Quadro
+  const q = db.prepare('SELECT * FROM quadros ORDER BY criado_em, rowid LIMIT 1').get() as Quadro
   if (!q) throw new Error('nenhum quadro existe')
   return q
+}
+
+/** Aceita id ou nome do quadro. Sem referência, devolve o quadro padrão. */
+export function resolverQuadro(ref?: string | null): Quadro {
+  if (!ref) return quadroPadrao()
+  const q = db
+    .prepare('SELECT * FROM quadros WHERE id = ? OR nome = ? COLLATE NOCASE ORDER BY (id = ?) DESC, criado_em, rowid LIMIT 1')
+    .get(ref, ref, ref) as Quadro | undefined
+  if (!q) throw new Error(`quadro "${ref}" não existe`)
+  return q
+}
+
+/** Quadros com a contagem de cards ativos, para o seletor da interface. */
+export function resumoQuadros() {
+  const contar = db.prepare('SELECT COUNT(*) AS n FROM cards c JOIN colunas col ON col.id = c.coluna_id WHERE col.quadro_id = ? AND c.arquivado_em IS NULL')
+  return listarQuadros().map(q => ({ ...q, cards: (contar.get(q.id) as { n: number }).n }))
+}
+
+const COLUNAS_PADRAO = ['A fazer', 'Em andamento', 'Revisão', 'Concluído']
+
+function nomeDeQuadro(nome: unknown, ignorarId?: string): string {
+  const limpo = typeof nome === 'string' ? nome.trim() : ''
+  if (!limpo || limpo.length > 60) throw new Error('Nome do quadro deve ter entre 1 e 60 caracteres.')
+  const igual = db.prepare('SELECT id FROM quadros WHERE nome = ? COLLATE NOCASE').get(limpo) as { id: string } | undefined
+  if (igual && igual.id !== ignorarId) throw new Error(`Já existe um quadro chamado "${limpo}".`)
+  return limpo
+}
+
+/** Cria um quadro já com as quatro colunas de sempre. */
+export function criarQuadro(nome: string, autor: string): Quadro {
+  return db.transaction(() => {
+    const limpo = nomeDeQuadro(nome)
+    const id = uid()
+    db.prepare('INSERT INTO quadros (id, nome) VALUES (?, ?)').run(id, limpo)
+    const inserir = db.prepare('INSERT INTO colunas (id, quadro_id, nome, posicao) VALUES (?, ?, ?, ?)')
+    COLUNAS_PADRAO.forEach((coluna, i) => inserir.run(uid(), id, coluna, (i + 1) * 1000))
+    registrar(null, autor, 'criou quadro', limpo)
+    return db.prepare('SELECT * FROM quadros WHERE id = ?').get(id) as Quadro
+  })()
+}
+
+export function renomearQuadro(id: string, nome: string, autor: string): Quadro {
+  return db.transaction(() => {
+    const atual = db.prepare('SELECT * FROM quadros WHERE id = ?').get(id) as Quadro | undefined
+    if (!atual) throw new Error('quadro não encontrado')
+    const limpo = nomeDeQuadro(nome, id)
+    db.prepare('UPDATE quadros SET nome = ? WHERE id = ?').run(limpo, id)
+    registrar(null, autor, 'renomeou quadro', `${atual.nome} → ${limpo}`)
+    return { ...atual, nome: limpo }
+  })()
+}
+
+/** Só apaga quadro vazio: cards (inclusive arquivados) e seu histórico nunca somem por tabela. */
+export function removerQuadro(id: string, autor: string) {
+  return db.transaction(() => {
+    const atual = db.prepare('SELECT * FROM quadros WHERE id = ?').get(id) as Quadro | undefined
+    if (!atual) throw new Error('quadro não encontrado')
+    if (listarQuadros().length < 2) throw new Error('Não é possível apagar o único quadro.')
+    const { n } = db.prepare('SELECT COUNT(*) AS n FROM cards c JOIN colunas col ON col.id = c.coluna_id WHERE col.quadro_id = ?').get(id) as { n: number }
+    if (n > 0) throw new Error(`O quadro ainda tem ${n} card(s), contando os arquivados. Mova ou apague os cards antes.`)
+    db.prepare('DELETE FROM quadros WHERE id = ?').run(id)
+    registrar(null, autor, 'apagou quadro', atual.nome)
+    return { ok: true }
+  })()
 }
 
 export function listarColunas(quadroId: string): Coluna[] {
@@ -395,11 +461,8 @@ export function listarCards(colunaId: string): Card[] {
 }
 
 /** Quadro inteiro em uma chamada — é o que a UI e o MCP pedem com mais frequência. */
-export function quadroCompleto(quadroId?: string) {
-  const quadro = quadroId
-    ? (db.prepare('SELECT * FROM quadros WHERE id = ?').get(quadroId) as Quadro)
-    : quadroPadrao()
-  if (!quadro) throw new Error('quadro não encontrado')
+export function quadroCompleto(quadroRef?: string) {
+  const quadro = resolverQuadro(quadroRef)
 
   return {
     ...quadro,
@@ -424,13 +487,15 @@ function criarCardOriginal(opts: {
   projeto?: string
   autor: string
   tags?: string[]
+  /** Id ou nome do quadro onde procurar a coluna pelo nome. Padrão: o quadro principal. */
+  quadro?: string
 }): Card {
   let colunaId = opts.colunaId
 
   // Aceita o nome da coluna ("A fazer") além do id — as sessões de IA
   // raramente têm o id à mão, e exigir isso tornaria a ferramenta chata de usar.
   if (!colunaId && opts.coluna) {
-    const q = quadroPadrao()
+    const q = resolverQuadro(opts.quadro)
     const c = db
       .prepare('SELECT id FROM colunas WHERE quadro_id = ? AND nome = ? COLLATE NOCASE')
       .get(q.id, opts.coluna) as { id: string } | undefined
@@ -438,7 +503,7 @@ function criarCardOriginal(opts: {
     colunaId = c.id
   }
 
-  if (!colunaId) colunaId = listarColunas(quadroPadrao().id)[0]?.id
+  if (!colunaId) colunaId = listarColunas(resolverQuadro(opts.quadro).id)[0]?.id
   if (!colunaId) throw new Error('nenhuma coluna disponível')
 
   const id = uid()
@@ -488,7 +553,8 @@ function moverCardOriginal(
 
   let colunaId = destino.colunaId
   if (!colunaId && destino.coluna) {
-    const q = quadroPadrao()
+    // O nome da coluna vale dentro do quadro em que o card já está.
+    const q = db.prepare('SELECT quadro_id AS id FROM colunas WHERE id = ?').get(card.coluna_id) as { id: string }
     const c = db
       .prepare('SELECT id FROM colunas WHERE quadro_id = ? AND nome = ? COLLATE NOCASE')
       .get(q.id, destino.coluna) as { id: string } | undefined

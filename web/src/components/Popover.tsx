@@ -14,11 +14,14 @@ type Props = {
   /** Esconde o texto do botão em qualquer largura (continua lido por leitores de tela). */
   soIcone?: boolean
   largura?: number
+  /** Para onde o painel abre. No rodapé, para cima. */
+  direcao?: 'baixo' | 'cima'
+  alinhar?: 'direita' | 'esquerda'
   children: ReactNode | ((fechar: () => void) => ReactNode)
 }
 
 /** Botão do cabeçalho que abre um painel em lista. Fecha ao clicar fora e com Esc. */
-export function Popover({ rotulo, titulo, icone, contador, ativo, alerta, soIcone, largura = 320, children }: Props) {
+export function Popover({ rotulo, titulo, icone, contador, ativo, alerta, soIcone, largura = 320, direcao = 'baixo', alinhar = 'direita', children }: Props) {
   const [aberto, setAberto] = useState(false)
   const raiz = useRef<HTMLDivElement>(null)
   const botao = useRef<HTMLButtonElement>(null)
@@ -42,7 +45,7 @@ export function Popover({ rotulo, titulo, icone, contador, ativo, alerta, soIcon
   const fechar = () => setAberto(false)
 
   return (
-    <div className="pop" ref={raiz}>
+    <div className={`pop pop--${direcao} pop--${alinhar}`} ref={raiz}>
       <button
         ref={botao}
         type="button"

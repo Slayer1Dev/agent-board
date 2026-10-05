@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Evento } from '../api'
 import { Autor, DataHora } from './Identidade'
 
@@ -6,11 +6,13 @@ import { Autor, DataHora } from './Identidade'
  * Barra de atividade: mostra o que cada sessão fez. É o motivo de o quadro
  * existir — sem isto seria só uma lista de tarefas.
  */
-export function Atividade({ eventos }: { eventos: Evento[] }) {
+export function Atividade({ eventos, inicio }: { eventos: Evento[]; inicio?: ReactNode }) {
   const [aberta, setAberta] = useState(false)
 
   return (
     <aside className={`atividade${aberta ? ' atividade--aberta' : ''}`}>
+      <div className="atividade__barra">
+      {inicio}
       <button
         className="atividade__alca"
         onClick={() => setAberta((v) => !v)}
@@ -23,6 +25,7 @@ export function Atividade({ eventos }: { eventos: Evento[] }) {
           {aberta ? '▾' : '▴'}
         </span>
       </button>
+      </div>
 
       {aberta && (
         <ul className="atividade__lista" id="atividade-lista">

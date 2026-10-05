@@ -6,7 +6,7 @@ const Icone = <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"
 
 type Campos = { cor?: string; favorito?: boolean; oculto?: boolean }
 
-export function Projetos({ aoEscolher, atual, versao, semProjeto }: { aoEscolher: (nome: string) => void; atual: string; versao: string; semProjeto: boolean }) {
+export function Projetos({ aoEscolher, atual, versao, semProjeto, quadro }: { aoEscolher: (nome: string) => void; atual: string; versao: string; semProjeto: boolean; quadro: string }) {
   const [projetos, setProjetos] = useState<ProjetoResumo[]>([])
   const [ordem, setOrdem] = useState<'atividade' | 'nome'>('atividade')
   const [ocultos, setOcultos] = useState(false)
@@ -14,12 +14,12 @@ export function Projetos({ aoEscolher, atual, versao, semProjeto }: { aoEscolher
 
   useEffect(() => {
     let ativo = true
-    api.projetos(ordem, ocultos).then(p => { if (ativo) { setProjetos(p); setErro('') } }).catch(e => { if (ativo) setErro((e as Error).message) })
+    api.projetos(ordem, ocultos, quadro).then(p => { if (ativo) { setProjetos(p); setErro('') } }).catch(e => { if (ativo) setErro((e as Error).message) })
     return () => { ativo = false }
-  }, [ordem, ocultos, versao])
+  }, [ordem, ocultos, versao, quadro])
 
   async function mudar(nome: string, campos: Campos) {
-    try { await api.atualizarProjeto(nome, campos); setProjetos(await api.projetos(ordem, ocultos)); setErro('') }
+    try { await api.atualizarProjeto(nome, campos); setProjetos(await api.projetos(ordem, ocultos, quadro)); setErro('') }
     catch (e) { setErro((e as Error).message) }
   }
 

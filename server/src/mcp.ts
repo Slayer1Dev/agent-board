@@ -18,6 +18,7 @@ import {
   listarProjetos, atualizarProjeto,
   listarLembretes, definirLembrete, agirLembrete,
   definirRepeticao, agirRepeticao,
+  resumoQuadros, criarQuadro,
   listarWallpapers, obterWallpaper, salvarWallpaper, apagarWallpaper, aparenciaCompartilhada, escolherWallpaper,
 } from './nucleo.js'
 
@@ -55,7 +56,7 @@ export function criarServidorMcp() {
   s.registerTool('listar_projetos', { inputSchema: { ordem: z.enum(['atividade', 'nome']).optional(), ocultos: z.boolean().optional() } }, async ({ ordem, ocultos }) => { try { return texto(listarProjetos(ordem, ocultos)) } catch (e) { return erro(e) } })
   s.registerTool('atualizar_projeto', { inputSchema: { nome: z.string(), cor: z.string().optional(), favorito: z.boolean().optional(), oculto: z.boolean().optional(), autor: AUTOR } }, async ({ nome, autor, ...campos }) => { try { return texto(atualizarProjeto(nome, campos, autor)) } catch (e) { return erro(e) } })
   s.registerTool('filtrar_cards', { inputSchema: {
-    busca: z.string().optional(), projeto: z.string().optional(), tag: z.string().optional(), autor: z.string().optional(), coluna: z.string().optional(),
+    busca: z.string().optional(), quadro: z.string().optional(), projeto: z.string().optional(), tag: z.string().optional(), autor: z.string().optional(), coluna: z.string().optional(),
     depende: z.boolean().optional(), lembrete: z.boolean().optional(), repetida: z.boolean().optional(), dias: z.number().int().min(1).max(36500).optional(),
     periodo: z.enum(['criado', 'alterado']).optional(), arquivados: z.boolean().optional(),
   } }, async ({ busca, ...filtros }) => { try { return texto(filtrarCards(busca, filtros)) } catch (e) { return erro(e) } })
@@ -68,17 +69,28 @@ export function criarServidorMcp() {
     inputSchema: { busca: z.string().optional() },
   }, async ({ busca }) => { try { return texto(pesquisarCards(busca)) } catch (e) { return erro(e) } })
 
+  s.registerTool('listar_quadros', {
+    title: 'Listar quadros',
+    description: 'Lista os quadros existentes com a contagem de cards ativos. O primeiro é o quadro principal.',
+    inputSchema: {},
+  }, async () => { try { return texto(resumoQuadros()) } catch (e) { return erro(e) } })
+  s.registerTool('criar_quadro', {
+    title: 'Criar quadro',
+    description: 'Cria um quadro novo, já com as colunas A fazer, Em andamento, Revisão e Concluído.',
+    inputSchema: { nome: z.string().describe('Nome do quadro, até 60 caracteres'), autor: AUTOR },
+  }, async ({ nome, autor }) => { try { return texto(criarQuadro(nome, autor)) } catch (e) { return erro(e) } })
+
   s.registerTool(
     'ver_quadro',
     {
       title: 'Ver o quadro',
       description:
-        'Retorna o quadro inteiro com colunas e cards. Use isto primeiro para saber o estado atual do trabalho antes de agir.',
-      inputSchema: {},
+        'Retorna o quadro inteiro com colunas e cards. Use isto primeiro para saber o estado atual do trabalho antes de agir. Sem `quadro`, devolve o quadro principal.',
+      inputSchema: { quadro: z.string().optional().describe('Nome ou id do quadro (veja listar_quadros). Padrão: o principal.') },
     },
-    async () => {
+    async ({ quadro }) => {
       try {
-        return texto(quadroCompleto())
+        return texto(quadroCompleto(quadro))
       } catch (e) {
         return erro(e)
       }
@@ -113,12 +125,13 @@ export function criarServidorMcp() {
         descricao: z.string().optional().describe('Contexto, critério de pronto, links'),
         projeto: z.string().optional().describe('A qual projeto pertence'),
         tags: z.array(z.string()).optional().describe('IDs das tags'),
+        quadro: z.string().optional().describe('Nome ou id do quadro. Padrão: o principal.'),
         autor: AUTOR,
       },
     },
-    async ({ titulo, coluna, descricao, projeto, tags, autor }) => {
+    async ({ titulo, coluna, descricao, projeto, tags, quadro, autor }) => {
       try {
-        return texto(criarCard({ titulo, coluna, descricao, projeto, tags, autor }))
+        return texto(criarCard({ titulo, coluna, descricao, projeto, tags, quadro, autor }))
       } catch (e) {
         return erro(e)
       }

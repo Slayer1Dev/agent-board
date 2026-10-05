@@ -26,6 +26,7 @@ export type ProjetoResumo = { nome: string; cor: string; favorito: boolean; ocul
 
 export type Coluna = { id: string; nome: string; posicao: number; cards: Card[] }
 export type Quadro = { id: string; nome: string; colunas: Coluna[] }
+export type QuadroResumo = { id: string; nome: string; criado_em: string; cards: number }
 export type Evento = {
   autor: string
   acao: string
@@ -70,16 +71,20 @@ export const api = {
   lembretes: () => req<Card[]>('/lembretes'),
   definirLembrete: (id: string, data: string | null, nota: string, revisao: number) => req<Card>(`/cards/${id}/lembrete`, { method: 'PUT', body: JSON.stringify({ data, nota, revisao }) }),
   agirLembrete: (id: string, acao: string, revisao: number) => req<Card>(`/cards/${id}/lembrete`, { method: 'POST', body: JSON.stringify({ acao, revisao }) }),
-  projetos: (ordem: string, ocultos: boolean) => req<ProjetoResumo[]>(`/projetos?ordem=${ordem}&ocultos=${ocultos}`),
+  projetos: (ordem: string, ocultos: boolean, quadro = '') => req<ProjetoResumo[]>(`/projetos?ordem=${ordem}&ocultos=${ocultos}${quadro ? `&quadro=${encodeURIComponent(quadro)}` : ''}`),
   atualizarProjeto: (nome: string, campos: { cor?: string; favorito?: boolean; oculto?: boolean }) => req<ProjetoResumo>(`/projetos/${encodeURIComponent(nome)}`, { method: 'PATCH', body: JSON.stringify(campos) }),
-  filtrar: (filtros: Record<string, string>) => req<Card[]>(`/cards?${new URLSearchParams({ ...filtros, arquivados: 'false' })}`),
+  filtrar: (filtros: Record<string, string>, quadro: string) => req<Card[]>(`/cards?${new URLSearchParams({ ...filtros, quadro, arquivados: 'false' })}`),
   tags: () => req<Tag[]>('/tags'),
   criarTag: (nome: string) => req<Tag>('/tags', { method: 'POST', body: JSON.stringify({ nome }) }),
   renomearTag: (id: string, nome: string) => req(`/tags/${id}`, { method: 'PATCH', body: JSON.stringify({ nome }) }),
   apagarTag: (id: string) => req(`/tags/${id}`, { method: 'DELETE' }),
   definirTags: (id: string, tags: string[], revisao: number) => req<Card>(`/cards/${id}/tags`, { method: 'PUT', body: JSON.stringify({ tags, revisao }) }),
   pesquisar: (busca: string) => req<(Card & { coluna: string; trecho: string })[]>(`/cards?busca=${encodeURIComponent(busca)}`),
-  quadro: () => req<Quadro>('/quadro'),
+  quadro: (id = '') => req<Quadro>(`/quadro${id ? `?id=${encodeURIComponent(id)}` : ''}`),
+  quadros: () => req<QuadroResumo[]>('/quadros'),
+  criarQuadro: (nome: string) => req<QuadroResumo>('/quadros', { method: 'POST', body: JSON.stringify({ nome }) }),
+  renomearQuadro: (id: string, nome: string) => req<QuadroResumo>(`/quadros/${id}`, { method: 'PATCH', body: JSON.stringify({ nome }) }),
+  apagarQuadro: (id: string) => req<{ ok: true }>(`/quadros/${id}`, { method: 'DELETE' }),
   atividade: (limite = 30) => req<Evento[]>(`/atividade?limite=${limite}`),
   card: (id: string) => req<Card & { eventos: Evento[] }>(`/cards/${id}`),
 

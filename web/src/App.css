@@ -738,3 +738,24 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   .proj__acao, .proj__cor { width: 36px; height: 36px; }
   .filtros-ativos { padding-inline: 16px; }
 }
+
+/* ===== Vários quadros: seletor no rodapé, ao lado da atividade ===== */
+.atividade { position: relative; }
+.atividade__barra { display: flex; align-items: center; }
+.atividade__barra > .pop { margin-left: 24px; flex-shrink: 0; }
+.atividade__barra .atividade__alca { flex: 1; min-width: 0; padding-left: 14px; }
+.pop--cima .pop__painel { top: auto; bottom: calc(100% + 8px); transform-origin: bottom right; }
+.pop--esquerda .pop__painel { right: auto; left: 0; transform-origin: top left; }
+.pop--cima.pop--esquerda .pop__painel { transform-origin: bottom left; }
+.quadro-form { display: flex; align-items: center; gap: 6px; padding: 4px 8px; }
+.quadro-form input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--linha-forte); border-radius: 7px; background: var(--campo); color: var(--texto); font-size: 13px; }
+.quadro-form .pop__link { margin-left: 0; }
+.pop__rodape.quadro-form { padding: 8px 10px; }
+.quadro-form__criar { min-height: 34px; padding: 0 12px; }
+.proj__acao:disabled { opacity: .35; cursor: not-allowed; }
+.proj__acao:disabled:hover { background: none; color: var(--dim); }
+@media (max-width: 760px) {
+  .atividade__barra > .pop { margin-left: 12px; }
+  .atividade__barra .pop__botao { min-width: 40px; min-height: 40px; }
+  .pop--cima .pop__painel { top: auto; bottom: calc(100% + 6px); }
+}
