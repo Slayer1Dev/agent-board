@@ -1,15 +1,43 @@
-# Busca, tags, filtros, projetos, lembretes, repetição e wallpapers
+# Referência da API
 
-Entrega de 04/10/2026 na branch `feat/busca-tags-lembretes`. Contratos anteriores preservados. Sem dependências novas.
+Rotas REST e ferramentas MCP do agent-board, com um exemplo de cada. As duas vias usam o mesmo
+núcleo (`server/src/nucleo.ts`), então fazem exatamente a mesma coisa.
 
-## Chamadas REST
+- Base REST: `http://127.0.0.1:8078/api`. MCP: `POST http://127.0.0.1:8078/mcp` (HTTP, sem estado).
+- Com `BOARD_API_KEY` definida, mande `Authorization: Bearer <chave>` em toda requisição.
+- Toda escrita precisa de autor: cabeçalho `x-autor` no REST, campo `autor` no MCP (até 60 caracteres).
+- Nos exemplos, `CARD`, `TAG`, `QUADRO` e `WALLPAPER` são ids obtidos das consultas.
+- Escritas em card aceitam `revisao` (o número que veio na leitura). Se o card mudou nesse meio
+  tempo, a escrita é recusada em vez de sobrescrever.
 
-Base: `http://127.0.0.1:8078/api`. Escritas usam `x-autor: codex` (o card final de revisão usa `astra`, conforme pedido). A API direta em `127.0.0.1:8078` exige a chave configurada; nunca grave a chave em um card. Nos exemplos abaixo, `CARD`, `TAG` e `WALLPAPER` são IDs reais obtidos das consultas.
+## Quadro, cards e colunas
+
+| Método e rota | Exemplo de caminho / corpo JSON |
+|---|---|
+| GET `/quadro` | `/quadro` devolve o quadro principal com colunas e cards; `/quadro?id=QUADRO` (id ou nome) escolhe outro |
+| GET `/quadros` | Lista os quadros com a contagem de cards ativos. O primeiro é o principal |
+| POST `/quadros` | `{"nome":"Estudos"}` cria o quadro já com as colunas A fazer, Em andamento, Revisão e Concluído |
+| PATCH `/quadros/QUADRO` | `{"nome":"Faculdade"}` |
+| DELETE `/quadros/QUADRO` | Sem corpo. Só apaga quadro sem cards (contando arquivados) e nunca o único |
+| GET `/cards/CARD` | Um card com todo o histórico (`eventos`) |
+| POST `/cards` | `{"titulo":"Conferir entrega","coluna":"A fazer","projeto":"site","descricao":"...","quadro":"Estudos"}`; `quadro` e `coluna` são opcionais |
+| PATCH `/cards/CARD` | `{"titulo":"Novo título","descricao":"...","projeto":"site","revisao":3}` |
+| POST `/cards/CARD/mover` | `{"coluna":"Em andamento"}`: o nome da coluna vale dentro do quadro do card |
+| POST `/cards/CARD/comentarios` | `{"texto":"Decidi usar X porque Y."}` |
+| POST `/cards/CARD/arquivar` · `/restaurar` | `{"revisao":3}` |
+| GET `/arquivados` | Cards arquivados |
+| POST `/acoes/ACAO/desfazer` | Desfaz a ação cujo id veio em `acao_id` na resposta de uma escrita |
+| DELETE `/cards/CARD` | Apaga de vez. Prefira arquivar |
+| POST `/colunas` | `{"nome":"Bloqueado","quadro":"Estudos"}` |
+| GET `/atividade` | `/atividade?limite=30`: o que mudou por último, com autor |
+| GET `/saude` (fora de `/api`) | `{"ok":true}`, sem autenticação |
+
+## Busca, tags, filtros, projetos, lembretes, repetição e wallpapers
 
 | Método e rota | Exemplo de caminho / corpo JSON |
 |---|---|
 | GET `/cards` | `/cards?busca=taxas` — inclui arquivados e devolve `trecho`, `coluna`, tags e metadados |
-| GET `/cards` com filtros | `/cards?projeto=agent-board&tag=TAG&autor=codex&coluna=Revis%C3%A3o&depende=true&lembrete=true&repetida=true&dias=7&periodo=alterado&arquivados=false` |
+| GET `/cards` com filtros | `/cards?quadro=QUADRO&projeto=agent-board&tag=TAG&autor=codex&coluna=Revis%C3%A3o&depende=true&lembrete=true&repetida=true&dias=7&periodo=alterado&arquivados=false` |
 | GET `/tags` | `/tags` |
 | POST `/tags` | `{"nome":"Urgente","cor":"#f4abb9"}` — cor é opcional |
 | PATCH `/tags/TAG` | `{"nome":"Prioridade"}` — preserva a cor |
@@ -40,12 +68,23 @@ curl -fsS "$QUADRO_API/cards/CARD/lembrete" -X PUT -H 'x-autor: codex' -H 'Conte
 curl -fsS "$QUADRO_API/wallpapers" -H 'x-autor: codex' -H 'Content-Type: application/octet-stream' --data-binary @/caminho/imagem.png
 ```
 
-## Ferramentas MCP novas
+## Ferramentas MCP
 
 Cada linha é um exemplo de `tools/call`: use `name` com o nome indicado e `arguments` com o JSON da segunda coluna. Endpoint `/mcp` continua stateless e exige a autenticação configurada.
 
 | Ferramenta | `arguments` de exemplo |
 |---|---|
+| `ver_quadro` | `{}` para o principal; `{"quadro":"Estudos"}` para outro |
+| `listar_quadros` | `{}` |
+| `criar_quadro` | `{"nome":"Estudos","autor":"codex"}` |
+| `ver_card` | `{"id":"CARD"}` |
+| `criar_card` | `{"titulo":"Conferir entrega","coluna":"A fazer","projeto":"site","quadro":"Estudos","autor":"codex"}` |
+| `mover_card` | `{"id":"CARD","coluna":"Em andamento","autor":"codex"}` |
+| `atualizar_card` | `{"id":"CARD","descricao":"...","autor":"codex"}` |
+| `comentar_card` | `{"id":"CARD","texto":"Decidi usar X porque Y.","autor":"codex"}` |
+| `remover_card` | `{"id":"CARD","autor":"codex"}` (destrutiva) |
+| `ver_arquivados` · `desfazer_acao` | `{}` · `{"id":"ACAO","autor":"codex"}` |
+| `atividade_recente` | `{"limite":30}` |
 | `pesquisar_cards` | `{"busca":"taxas"}` |
 | `filtrar_cards` | `{"projeto":"agent-board","depende":true,"dias":7,"periodo":"alterado","arquivados":false}` |
 | `listar_tags` | `{}` |
@@ -86,24 +125,9 @@ Exemplo de envelope MCP:
 - Upload não usa nome fornecido; arquivos recebem UUID e extensão detectada. PNG verifica estrutura, CRC e descompressão; JPG e WebP verificam estrutura e dimensões. O navegador verifica decodificação antes de enviar. Não há decodificador completo de JPG/WebP no servidor. Limites adicionais: 16 milhões de pixels / 8192 px por lado; WebP animado não é aceito.
 - A galeria e a escolha ficam no servidor. Tema/largura/fundo continuam locais. Wallpaper antigo em data URL é enviado quando aquele navegador abre a nova versão e o servidor ainda não tem seleção. Imagens autenticadas são carregadas como blobs na interface; nenhum recurso externo é necessário.
 
-## Conectar notificações depois
+## Notificações fora do quadro
 
-Um consumidor no serviço à parte pode consultar `GET /api/lembretes` ou `lembretes_pendentes` em intervalos, deduplicar por `(card.id, lembrete_em)` e então enviar ao Telegram/e-mail. A consulta só lê; para marcar feito use a ação explícita. Este trabalho não instalou consumidor nem envio externo.
-
-## Verificação e retorno
-
-```sh
-cd ~/agent-board/server
-npm test && npm run build && npx tsc --noEmit
-node verificar-integracao.mjs
-cd ../web
-npm run lint && npm run build && npx tsc --noEmit
-```
-
-Retorno ao visual/código anterior, mantendo banco, metadados novos e alterações locais de dependências:
-
-```sh
-ssh SEU_SERVIDOR 'export PATH=$HOME/.nvm/versions/node/current/bin:$PATH; cd ~/agent-board && git switch design/header-claude && (cd server && npm run build) && (cd web && npm run build) && systemctl --user restart agent-board agent-board-web'
-```
-
-Não restaurar o banco para voltar o código. Na branch antiga lembretes/repetições novos ficam sem interface e sem geração, mas continuam guardados para quando esta branch voltar. Backup inicial validado: `~/backups/agent-board-2026-10-04-2317/`.
+O quadro não envia lembretes para celular nem e-mail. Para ligar isso, um processo seu pode
+consultar `GET /api/lembretes` (ou a ferramenta `lembretes_pendentes`) de tempos em tempos,
+ignorar o que já avisou usando o par `(card.id, lembrete_em)` e mandar pelo canal que preferir.
+A consulta só lê; para marcar como feito, use a ação explícita do lembrete.

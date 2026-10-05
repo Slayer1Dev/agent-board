@@ -2,46 +2,54 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [22.x]
+        node-version: [20.x, 22.x]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
 
-    - name: Install server dependencies
-      run: npm install
-      working-directory: ./server
+      - name: Server - install
+        run: npm ci
+        working-directory: ./server
+      - name: Server - typecheck
+        run: npm run typecheck
+        working-directory: ./server
+      - name: Server - unit tests
+        run: npm test
+        working-directory: ./server
+      - name: Server - build
+        run: npm run build
+        working-directory: ./server
+      - name: Server - integration (REST + MCP against a throwaway database)
+        run: node verificar-integracao.mjs
+        working-directory: ./server
 
-    - name: Install web dependencies
-      run: npm install
-      working-directory: ./web
+      - name: Web - install
+        run: npm ci
+        working-directory: ./web
+      - name: Web - lint
+        run: npm run lint
+        working-directory: ./web
+      - name: Web - build
+        run: npm run build
+        working-directory: ./web
 
-    - name: Typecheck server
-      run: npm run typecheck
-      working-directory: ./server
-
-    - name: Typecheck web
-      run: npx tsc --noEmit
-      working-directory: ./web
-
-    - name: Run server tests
-      run: npm test
-      working-directory: ./server
-
-    - name: Build web
-      run: npm run build
-      working-directory: ./web
+      - name: CLI - syntax
+        run: node --check cli/agent-board.mjs

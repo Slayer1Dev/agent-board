@@ -59,8 +59,11 @@ está errado.
 
 ### 6. Português
 
-Código, comentários, interface e documentação em português. Não traduza o que
-existe nem escreva em inglês.
+Código, comentários, interface e nomes da API em português. Não traduza o que
+existe. As exceções são os documentos voltados a quem chega pelo GitHub:
+`README.md`, `CHANGELOG.md`, `SECURITY.md` e a primeira metade do
+`CONTRIBUTING.md` são em inglês, e o `README.pt-BR.md` é o espelho em português.
+Mexeu num README? Atualize os dois.
 
 ### 7. Comentários explicam *por quê*
 
@@ -71,11 +74,11 @@ comente.
 ## Antes de dizer que terminou
 
 ```bash
-cd server && npx tsc --noEmit && npm test
-cd web    && npx tsc --noEmit && npm run build
+cd server && npm run typecheck && npm test && npm run build && node verificar-integracao.mjs
+cd web    && npm run lint && npm run build
 ```
 
-Os quatro precisam passar. Se você mexeu no `nucleo.ts`, **escreva teste** —
+Todos precisam passar. Se você mexeu no `nucleo.ts`, **escreva teste** —
 é lógica pura sobre SQLite, não tem desculpa.
 
 ## Armadilhas conhecidas
@@ -93,20 +96,32 @@ Os quatro precisam passar. Se você mexeu no `nucleo.ts`, **escreva teste** —
 
 ## O que fazer quando terminar
 
-Escreva um `RELATORIO.md` na raiz com: o que mudou em cada arquivo, o que você
-tentou e não funcionou, e qualquer decisão que tomou sem ter sido instruído.
+Descreva no pull request (ou num `RELATORIO.md` local, que o git ignora): o que
+mudou em cada arquivo, o que você tentou e não funcionou, e qualquer decisão que
+tomou sem ter sido instruído. Atualize o `CHANGELOG.md`.
 
-Se algo na tarefa parecia errado, **diga no relatório em vez de silenciosamente
-fazer diferente**.
+Se algo na tarefa parecia errado, **diga em vez de silenciosamente fazer
+diferente**.
 
-## Contratos adicionais (04/10/2026)
+## Contratos das funções mais novas
 
-Leia [NOVAS_APIS.md](NOVAS_APIS.md) antes de operar as funções novas. A documentação contém exemplos de cada rota/ferramenta. Rotas antigas continuam compatíveis.
+A referência de rotas REST e ferramentas MCP, com um exemplo de cada, está em
+[docs/API.md](docs/API.md). Rotas e ferramentas antigas continuam compatíveis.
 
-- REST: GET /cards (busca + filtros); GET/POST /tags; PATCH/DELETE /tags/:id; PUT /cards/:id/tags; GET /projetos; PATCH /projetos/:nome; GET /lembretes; PUT/POST /cards/:id/lembrete; PUT/POST /cards/:id/repeticao; GET/POST /wallpapers; GET /wallpapers/:id/arquivo; DELETE /wallpapers/:id; GET/PUT /aparencia. POST /cards aceita tags opcionais.
-- MCP: pesquisar_cards, filtrar_cards, listar_tags, criar_tag, alterar_tag, definir_tags, listar_projetos, atualizar_projeto, lembretes_pendentes, definir_lembrete, agir_lembrete, definir_repeticao, agir_repeticao, listar_wallpapers, obter_wallpaper, enviar_wallpaper, apagar_wallpaper, ver_aparencia, escolher_wallpaper. criar_card aceita tags opcionais.
-- No início da sessão, consulte também lembretes_pendentes (ou GET /api/lembretes).
-- Migrações aditivas: tags/card_tags, projetos, repeticoes/ocorrencias, wallpapers/preferencias e campos de lembrete/repeticao_id nos cards. Nunca reescreva campos existentes ao migrar.
-- Repetição exige transação com movimento e geração; não remova índices UNIQUE de série/período ou origem. Pause/encerre via núcleo, com autoria em toda a série. Nunca apague ocorrência para desfazer um movimento.
-- Upload deve passar por validarWallpaper no núcleo (8 MB; sem SVG; nome gerado pelo servidor). BOARD_DADOS permite isolar arquivos em testes; produção usa a pasta do BOARD_DB. Não sirva caminhos de arquivo fornecidos pelo cliente.
-- Verifique também `cd server && node verificar-integracao.mjs` depois dos builds. O teste reinicia processo com banco descartável dentro do repositório; não toca produção.
+- No início da sessão, consulte também `lembretes_pendentes` (ou `GET /api/lembretes`).
+- **Migrações aditivas.** Nunca reescreva campos existentes ao migrar.
+- **Vários quadros.** Sem dizer qual, tudo vale para o quadro principal (o mais antigo).
+  `resolverQuadro` aceita id ou nome. Mover um card pelo nome da coluna procura a coluna
+  no quadro do próprio card. Só se apaga quadro vazio, contando os arquivados.
+- **Repetição** exige transação com movimento e geração; não remova os índices UNIQUE de
+  série/período ou de origem. Pause ou encerre pelo núcleo. Nunca apague uma ocorrência
+  para desfazer um movimento.
+- **Upload** passa por `validarWallpaper` no núcleo (8 MB, sem SVG, nome gerado pelo
+  servidor). `BOARD_DADOS` isola os arquivos em testes. Não sirva caminhos de arquivo
+  fornecidos pelo cliente.
+- **Limites de entrada** (título, descrição, comentário, projeto, autor) ficam no núcleo
+  e em `registrar`, para valerem igual em REST e MCP.
+- **Segurança da API** (`server/src/index.ts`): sem chave não há CORS e o servidor recusa
+  `Host` e origem desconhecidos. Não volte a ligar `cors()` para qualquer origem.
+- Depois dos builds, rode também `cd server && node verificar-integracao.mjs`. Ele sobe um
+  processo com banco descartável dentro do repositório e confere REST e MCP.

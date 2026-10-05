@@ -1,105 +1,126 @@
 # agent-board
 
-Um quadro Kanban que agentes de IA operam via **MCP**.
+**English** · [Português](README.pt-BR.md)
 
-O problema: quando várias sessões de IA trabalham nos mesmos projetos, cada uma começa do zero. Nenhuma sabe o que a outra fez, o que está em andamento, ou por que aquela decisão foi tomada.
+A Kanban board that AI agents operate through **MCP**, with a web interface for the human.
 
-Este quadro é o estado compartilhado. Você arrasta cards pela interface; as sessões leem e escrevem pelas mesmas operações, via MCP. **Toda mudança fica registrada com autor** — abrir um card mostra quem criou, quem moveu e o que cada sessão comentou.
+When several AI sessions work on the same projects, each one starts from zero. None of them knows what the others did, what is in progress, or why a decision was made. This board is the shared state: you drag cards in the browser, and Claude Code, Codex and other agents read and write the same cards through MCP, a REST API or a small CLI. **Every change is recorded with its author**, so opening a card shows which session did what.
 
-## Como funciona
+![The board with cards from several agents](docs/screenshot.jpg)
 
-```
-  interface web  ──┐
-                   ├──►  API + SQLite
-  Claude / Codex ──┘        ▲
-  (via MCP)                 │
-                     histórico com autoria
-```
+> The interface, the API routes and the MCP tool names are in Portuguese. The code is small and the tool descriptions are self-explanatory to an AI agent, but translations are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-API REST e ferramentas MCP compartilham o mesmo núcleo (`server/src/nucleo.ts`), então não há como uma via divergir da outra.
+## What it does
 
-## Ferramentas MCP
+- **Kanban with authorship.** Columns, drag and drop, comments, and a per-card history that says who did each thing.
+- **For agents.** 30+ MCP tools over HTTP, a REST API, and a dependency-free CLI. All three share one core, so they cannot drift apart.
+- **Finding things.** Search across titles, descriptions, comments and tags (Ctrl+K), combinable filters kept in the URL, tags, and a project list with counts.
+- **Several boards**, each with its own columns.
+- **Reminders and recurring tasks.** Agents can ask for "reminders due today" when a session starts.
+- **Safe to operate.** Archive instead of delete, undo (Ctrl+Z), and optimistic locking so two sessions do not overwrite each other.
+- **Three themes** (dark, light, glass) and wallpapers stored on the server.
+- **Small.** SQLite in a single file, no external services, few dependencies.
 
-| Ferramenta | Para quê |
-|---|---|
-| `ver_quadro` | Estado atual — colunas e cards |
-| `ver_card` | Um card com todo o histórico |
-| `criar_card` | Novo card (coluna pelo nome, ex.: "A fazer") |
-| `mover_card` | Reportar progresso movendo de coluna |
-| `atualizar_card` | Editar título, descrição, projeto |
-| `comentar_card` | Registrar decisão ou bloqueio para a próxima sessão |
-| `remover_card` | Apagar (marcada como destrutiva) |
-| `atividade_recente` | O que mudou desde a última vez |
+## Quick start
 
-Toda ferramenta de escrita exige `autor`. Sem isso o quadro vira um estado sem história — e a história é o ponto.
-
-## Rodando
-
-> **Nota:** O servidor usa `better-sqlite3`, que compila código nativo durante a instalação. Dependendo do seu sistema, isso pode exigir ferramentas de build (`build-essential`/`python3` no Linux, Xcode CLI tools no macOS, VS Build Tools no Windows). O caminho mais fácil para evitar isso é rodar via **Docker Compose**: `docker compose up --build`.
-
-**Servidor** (API em `/api`, MCP em `/mcp`):
+Requires Node.js 20 or newer. `better-sqlite3` compiles native code on install; on Linux you may need `build-essential` and `python3`.
 
 ```bash
+git clone https://github.com/Slayer1Dev/agent-board.git
+cd agent-board
+
+# Terminal 1: API and MCP on http://127.0.0.1:8078
 cd server && npm install && npm run dev
-```
 
-**Interface:**
-
-```bash
+# Terminal 2: interface on http://localhost:5174
 cd web && npm install && npm run dev
 ```
 
-A interface sobe em `http://localhost:5174` e conversa com a API por proxy.
-
-### Variáveis
-
-| Variável | Padrão | O que faz |
-|---|---|---|
-| `BOARD_DB` | `~/.agent-board/board.db` | Arquivo SQLite |
-| `BOARD_PORT` | `8078` | Porta |
-| `BOARD_HOST` | `127.0.0.1` | Interface de rede |
-| `BOARD_API_KEY` | *(vazio)* | Exige `Authorization: Bearer` quando definida |
-
-⚠️ Sem `BOARD_API_KEY` o servidor sobe **sem autenticação**. Aceitável em `127.0.0.1`; se mudar o `BOARD_HOST`, defina a chave.
-
-## Conectando uma IA
+Or with Docker (publishes both ports on localhost only):
 
 ```bash
-# Claude Code
-claude mcp add --scope user --transport http agent-board http://SEU_HOST:8078/mcp \
-  --header "Authorization: Bearer SUA_CHAVE"
-
-# Codex
-codex mcp add agent-board --url http://SEU_HOST:8078/mcp \
-  --bearer-token-env-var BOARD_API_KEY
+docker compose up --build
 ```
 
-## Decisões técnicas
+## Connecting an agent
 
-- **SQLite** em vez de Postgres. O gargalo é o tempo do agente, não o banco. Arquivo único, backup por `cp`, zero serviço para manter.
-- **MCP stateless** — cada requisição cria seu transporte. Sem sessão para expirar; o custo é não ter notificações do servidor, que este quadro não usa.
-- **Posições em float** com espaçamento de 1000. Reordenar é calcular a média entre vizinhos, sem reescrever a coluna inteira.
-- **Drag and drop nativo** do HTML5, sem biblioteca. Menos 30 kB e uma dependência a menos para manter.
-- **Atualização otimista** no arraste: o card move na tela antes da resposta do servidor, senão a interação parece travada.
-- **Poll de 4s com comparação de assinatura** — só re-renderiza quando algo realmente mudou, senão o quadro pisca sozinho.
+**MCP** (Claude Code shown; any MCP client over HTTP works):
 
-## Limitações conhecidas
+```bash
+claude mcp add --scope user --transport http agent-board http://127.0.0.1:8078/mcp
+# with a key:  --header "Authorization: Bearer YOUR_KEY"
+```
 
-- Poll, não WebSocket. Mudança de outra sessão aparece em até 4 segundos.
-- Um quadro só na interface (o modelo suporta vários).
-- Sem autenticação de usuário — o `autor` é declarado, não verificado. Serve para uso pessoal, não para equipe com controle de acesso.
+**CLI**, for agents without MCP or for your own terminal:
 
-## Licença
+```bash
+export AGENT_BOARD_URL=http://127.0.0.1:8078/api
+export AGENT_BOARD_AUTHOR=claude
+
+node cli/agent-board.mjs ver
+node cli/agent-board.mjs criar "Fix the login redirect" --projeto site --coluna "A fazer"
+node cli/agent-board.mjs mover 1a2b3c4d "Em andamento"
+node cli/agent-board.mjs comentar 1a2b3c4d "Root cause was the cookie domain."
+node cli/agent-board.mjs buscar "cookie"
+```
+
+A ready-made instruction file for Claude Code is in [integrations/claude-code-skill](integrations/claude-code-skill/SKILL.md). Tell every agent to identify itself: the `autor` field is required on every write.
+
+The full list of routes and tools, with an example for each, is in [docs/API.md](docs/API.md).
+
+## Configuration
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `BOARD_DB` | `~/.agent-board/board.db` | SQLite file |
+| `BOARD_DADOS` | folder of `BOARD_DB` | Where uploaded wallpapers are stored |
+| `BOARD_PORT` | `8078` | Port |
+| `BOARD_HOST` | `127.0.0.1` | Network interface to listen on |
+| `BOARD_API_KEY` | *(empty)* | When set, every request needs `Authorization: Bearer <key>` |
+| `BOARD_HOSTS` | *(empty)* | Extra host names accepted when there is no key (comma separated) |
+| `BOARD_CORS_ORIGENS` | *(empty)* | Browser origins allowed to call the API from another address |
+| `BOARD_PERMITIR_ABERTO` | *(empty)* | `1` lets the server listen outside localhost without a key |
+| `BOARD_FUSO` | `America/Sao_Paulo` | Time zone used to decide whether a reminder is "today" |
+
+## Security model
+
+This is a personal tool, and its defaults assume a single machine.
+
+- **Without a key the server only accepts calls made to its own localhost address.** It rejects unknown `Host` headers and requests coming from other websites, so a page open in your browser cannot read or change your board.
+- **To reach it from other machines, set `BOARD_API_KEY`.** The server refuses to start on a non-local interface without one, unless you set `BOARD_PERMITIR_ABERTO=1` because the port is already protected some other way (a VPN, a firewall).
+- **Do not put the key in the web build.** Serve the interface through a proxy that adds the header: [web/vite.proxy.example.mjs](web/vite.proxy.example.mjs) does exactly that.
+- **`autor` is declared, not verified.** It is a history, not access control. Anyone with access to the API can write under any name.
+
+See [SECURITY.md](SECURITY.md) to report a vulnerability.
+
+## How it is built
+
+```
+  web interface ──┐
+  CLI ────────────┼──►  REST API ─┐
+  Claude / Codex ─┴──►  MCP ──────┴──►  core (nucleo.ts)  ──►  SQLite
+                                              │
+                                    history with authorship
+```
+
+- **One core.** `server/src/nucleo.ts` holds all the rules; REST and MCP are thin layers over it.
+- **SQLite**, not Postgres: one file, backup with `cp`, nothing to keep running.
+- **Stateless MCP.** Each request creates its own transport; there is no session to expire.
+- **Float positions** with a gap of 1000, so reordering is an average between neighbours.
+- **Native HTML5 drag and drop**, no library.
+- **4-second polling** with a signature check, so the board only re-renders when something changed.
+
+## Known limitations
+
+- Polling, not WebSocket: a change made by another session appears within 4 seconds.
+- No user accounts. See the security model above.
+- Interface and API names are in Portuguese only.
+- Reminders are shown in the board and available to agents; nothing is pushed to phone or e-mail.
+
+## Contributing
+
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first; if you work with an AI agent, point it to [AGENTS.md](AGENTS.md).
+
+## License
 
 [MIT](LICENSE)
-
-## Evolução de 04/10/2026: busca e organização
-
-Contratos, exemplos de todas as novas rotas REST e ferramentas MCP e retorno à branch anterior estão em [NOVAS_APIS.md](NOVAS_APIS.md).
-
-- Busca global (Ctrl+K) em títulos, descrições, projetos, comentários e tags, incluindo arquivados com trechos destacados.
-- Tags com cores, filtros combinados e visão na URL; projetos com contagens, última atividade, favoritos e ocultação.
-- Lembretes no fuso de São Paulo, conclusão/adiamento e consulta para as sessões de IA. Repetição diária/semanal/mensal com geração transacional e prevenção de duplicatas persistida no SQLite.
-- Wallpapers em pasta ao lado do banco, galeria e seleção compartilhadas; upload PNG/JPG/WebP validado por conteúdo, até 8 MB. Temas claro, escuro e glass com superfícies de leitura e foco visível.
-
-Verificação adicional: `cd server && node verificar-integracao.mjs` usa banco e arquivos descartáveis dentro do repositório e testa REST, MCP e persistência entre processos.

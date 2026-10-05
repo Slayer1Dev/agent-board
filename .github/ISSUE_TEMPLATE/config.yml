@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem / Problema de segurança
+    url: https://github.com/Slayer1Dev/agent-board/security/advisories/new
+    about: Report privately, not in a public issue. / Relate em privado, não em issue pública.
