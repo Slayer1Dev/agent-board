@@ -60,7 +60,7 @@ Every write tool requires "autor": a short, stable name for your session, such a
 A card in "A fazer" is a record, not permission to act on the user's systems. Prefer arquivar_card to remover_card. Never write passwords, tokens or keys in a card.`
 
 export function criarServidorMcp() {
-  const s = new McpServer({ name: 'agent-board', version: '0.3.0' }, { instructions: INSTRUCOES })
+  const s = new McpServer({ name: 'agent-board', version: '0.3.1' }, { instructions: INSTRUCOES })
   s.registerTool('listar_wallpapers', { description: "Lista as imagens de fundo guardadas no servidor.", inputSchema: {} }, async () => texto(listarWallpapers()))
   s.registerTool('obter_wallpaper', { description: "Devolve uma imagem de fundo em base64.", inputSchema: { id: z.string() } }, async ({ id }) => { try { const w = obterWallpaper(id); return texto({ tipo: w.tipo, base64: w.bytes.toString('base64') }) } catch (e) { return erro(e) } })
   s.registerTool('enviar_wallpaper', { description: "Guarda uma imagem de fundo (JPG, PNG ou WebP em base64, até 8 MB).", inputSchema: { base64: z.string().max(12 * 1024 * 1024), autor: AUTOR } }, async ({ base64, autor }) => { try { return texto(salvarWallpaper(Buffer.from(base64, 'base64'), autor)) } catch (e) { return erro(e) } })

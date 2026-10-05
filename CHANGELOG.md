@@ -2,7 +2,7 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.1] - 2026-10-05
 
 ### Added
 
@@ -71,7 +71,7 @@ Notable changes to this project. The format follows [Keep a Changelog](https://k
 
 First public version: one board, columns, cards, comments, history with authorship, REST API and eight MCP tools.
 
-[Unreleased]: https://github.com/Slayer1Dev/agent-board/compare/v0.3.0...HEAD
+[0.3.1]: https://github.com/Slayer1Dev/agent-board/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Slayer1Dev/agent-board/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Slayer1Dev/agent-board/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Slayer1Dev/agent-board/releases/tag/v0.1.0

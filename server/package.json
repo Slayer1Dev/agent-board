@@ -1,6 +1,6 @@
 {
   "name": "agent-board-server",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "agent-board server: REST API and MCP server for a self-hosted Kanban board that AI coding agents share",
   "scripts": {
     "dev": "tsx watch src/index.ts",
