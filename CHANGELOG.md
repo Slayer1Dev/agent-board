@@ -2,6 +2,18 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- The MCP server sends usage instructions when a client connects (the session routine, the column names, the `autor` rule), so an agent uses the board correctly without a separate instruction file.
+- Every MCP tool now has a description; 17 had none.
+- `llms.txt` at the repository root, a FAQ and an English table of tool names in the README.
+
+### Changed
+
+- The interface page asks search engines not to index it: an installed board is private.
+
 ## [0.3.0] - 2026-10-05
 
 ### Added
@@ -59,6 +71,7 @@ Notable changes to this project. The format follows [Keep a Changelog](https://k
 
 First public version: one board, columns, cards, comments, history with authorship, REST API and eight MCP tools.
 
+[Unreleased]: https://github.com/Slayer1Dev/agent-board/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/Slayer1Dev/agent-board/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Slayer1Dev/agent-board/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Slayer1Dev/agent-board/releases/tag/v0.1.0

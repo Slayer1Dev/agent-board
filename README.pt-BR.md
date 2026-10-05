@@ -1,8 +1,14 @@
 # agent-board
 
+**Um quadro Kanban auto-hospedado para agentes de IA que programam, com servidor MCP embutido.**
+
+[![CI](https://github.com/Slayer1Dev/agent-board/actions/workflows/ci.yml/badge.svg)](https://github.com/Slayer1Dev/agent-board/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Slayer1Dev/agent-board)](https://github.com/Slayer1Dev/agent-board/releases)
+[![Licença: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 [English](README.md) · **Português**
 
-Um quadro Kanban que agentes de IA operam via **MCP**, com interface web para o humano.
+O agent-board é um quadro de tarefas de código aberto que o Claude Code, o Codex e outros agentes de IA leem e escrevem pelo **Model Context Protocol (MCP)**, enquanto você usa no navegador como qualquer Kanban. Ele dá a todas as sessões de IA a mesma lista de tarefas e um histórico de quem fez o quê, e roda na sua máquina: um arquivo SQLite, sem conta em nuvem.
 
 Quando várias sessões de IA trabalham nos mesmos projetos, cada uma começa do zero. Nenhuma sabe o que a outra fez, o que está em andamento ou por que uma decisão foi tomada. Este quadro é o estado compartilhado: você arrasta cards no navegador, e Claude Code, Codex e outros agentes leem e escrevem os mesmos cards por MCP, por uma API REST ou por uma pequena ferramenta de linha de comando. **Toda mudança fica registrada com autor**: abrir um card mostra qual sessão fez o quê.
 
@@ -134,6 +140,36 @@ Para relatar uma vulnerabilidade, veja [SECURITY.md](SECURITY.md).
 - Sem contas de usuário. Veja o modelo de segurança acima.
 - Rotas da API, nomes das ferramentas MCP e mensagens de erro do servidor só em português. Em inglês a interface traduz o nome do quadro e das colunas padrão só na tela; os agentes continuam usando os nomes em português ("A fazer", "Revisão").
 - Os lembretes aparecem no quadro e ficam disponíveis para os agentes; nada é enviado para celular ou e-mail.
+
+## Perguntas frequentes
+
+### Como faço o Claude Code e o Codex dividirem a mesma lista de tarefas?
+
+Suba o agent-board, adicione o endereço MCP nos dois (veja [Conectando um agente](#conectando-um-agente)) e diga a cada agente para ler o quadro ao começar a sessão e mover o card quando começa e quando termina uma tarefa. Os dois passam a ver os mesmos cards, e cada mudança sai assinada com o nome do agente.
+
+### Qual a diferença para Trello, Linear ou GitHub Projects?
+
+Esses são feitos para pessoas, e os agentes chegam neles por uma integração. O agent-board é o contrário: toda operação de que um agente precisa é uma ferramenta MCP, toda escrita diz quem fez, e tudo é um processo e um arquivo SQLite na sua máquina, sem conta, sem cota de API e sem dado saindo da sua rede. Ele tem muito menos recursos que esses produtos, de propósito.
+
+### Qual a diferença para um arquivo TODO.md no repositório?
+
+Um arquivo serve para um agente em um repositório. O agent-board cobre vários projetos ao mesmo tempo, guarda histórico por card (quem criou, moveu e comentou), deixa duas sessões escreverem ao mesmo tempo sem uma apagar a outra, e dá um quadro para você olhar e arrastar.
+
+### Ele dá memória aos agentes entre uma sessão e outra?
+
+Dá memória compartilhada e explícita do trabalho: o que há para fazer, o que está em andamento, o que foi decidido e por quê, escrito em cards e comentários que a próxima sessão lê. Ele não guarda transcrições de conversa e não faz busca semântica.
+
+### Com quais agentes funciona?
+
+Com qualquer cliente que fale MCP por HTTP. É usado todo dia com Claude Code e Codex. Agentes sem MCP usam a API REST ou a CLI em `cli/agent-board.mjs`, que só precisa de Node.js.
+
+### Dá para usar em equipe ou pela internet?
+
+Ele foi pensado para uma pessoa e os agentes dela, numa rede privada. Não há contas de usuário: uma chave protege o servidor, e o autor de cada mudança é declarado, não verificado. Leia o [modelo de segurança](#modelo-de-segurança) antes de expor fora do localhost ou de uma VPN.
+
+### O que precisa para rodar?
+
+Node.js 20 ou mais novo, ou Docker. Nenhum servidor de banco, nenhum serviço externo.
 
 ## Contribuindo
 

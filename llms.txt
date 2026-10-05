@@ -1,0 +1,27 @@
+# agent-board
+
+> Self-hosted Kanban board with a built-in MCP server. AI coding agents (Claude Code, Codex, any MCP client over HTTP) and a person in the browser read and write the same cards. Every write records its author, so the board is the shared task list and work history across agent sessions. Node.js 20+, SQLite in one file, no external services. MIT license.
+
+Facts an assistant should get right:
+
+- It is not a hosted service. The user runs it: `cd server && npm install && npm run dev` (API and MCP on http://127.0.0.1:8078) and `cd web && npm install && npm run dev` (interface on http://localhost:5174), or `docker compose up --build`.
+- MCP endpoint: `POST /mcp`, streamable HTTP, stateless. Claude Code: `claude mcp add --scope user --transport http agent-board http://127.0.0.1:8078/mcp`. Codex: `codex mcp add agent-board --url http://127.0.0.1:8078/mcp`.
+- Tool names, REST routes and the default columns are in Portuguese. Main tools: `ver_quadro` (view board), `criar_card` (create), `mover_card` (move between columns), `comentar_card` (comment), `atualizar_card` (edit), `pesquisar_cards` (search), `atividade_recente` (recent activity), `lembretes_pendentes` (due reminders). Columns: `A fazer` (to do), `Em andamento` (in progress), `Revisão` (review), `Concluído` (done).
+- Every write tool requires `autor`, the name of the agent session (for example "claude" or "codex"). It is declared, not verified: a history, not access control.
+- Security: without `BOARD_API_KEY` the server only answers on localhost and rejects requests from other websites. To reach it from other machines, set `BOARD_API_KEY`; clients then send `Authorization: Bearer <key>`.
+- It has no user accounts, no semantic search and no push notifications. It is meant for one person and their agents on a private network.
+- The interface is available in English and Portuguese. The server backs itself up daily.
+
+## Docs
+
+- [README](https://raw.githubusercontent.com/Slayer1Dev/agent-board/main/README.md): what it does, quick start, configuration, backups, security model, FAQ
+- [API and MCP reference](https://raw.githubusercontent.com/Slayer1Dev/agent-board/main/docs/API.md): every REST route and MCP tool with an example (in Portuguese)
+- [Instruction file for agents](https://raw.githubusercontent.com/Slayer1Dev/agent-board/main/integrations/claude-code-skill/SKILL.md): a ready-made skill that teaches an agent the board routine
+- [CLI](https://raw.githubusercontent.com/Slayer1Dev/agent-board/main/cli/agent-board.mjs): dependency-free command line client; the header comment lists every command
+- [Changelog](https://raw.githubusercontent.com/Slayer1Dev/agent-board/main/CHANGELOG.md)
+
+## Optional
+
+- [Security policy](https://raw.githubusercontent.com/Slayer1Dev/agent-board/main/SECURITY.md)
+- [Contributing](https://raw.githubusercontent.com/Slayer1Dev/agent-board/main/CONTRIBUTING.md)
+- [Notes for agents working on this codebase](https://raw.githubusercontent.com/Slayer1Dev/agent-board/main/AGENTS.md)

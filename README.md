@@ -1,8 +1,14 @@
 # agent-board
 
+**A self-hosted Kanban board for AI coding agents, with an MCP server built in.**
+
+[![CI](https://github.com/Slayer1Dev/agent-board/actions/workflows/ci.yml/badge.svg)](https://github.com/Slayer1Dev/agent-board/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Slayer1Dev/agent-board)](https://github.com/Slayer1Dev/agent-board/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **English** · [Português](README.pt-BR.md)
 
-A Kanban board that AI agents operate through **MCP**, with a web interface for the human.
+agent-board is an open-source task board that Claude Code, Codex and other AI agents read and write through the **Model Context Protocol (MCP)**, while you use it in the browser like any Kanban. It gives every agent session the same task list and a history of who did what, and it runs on your own machine: one SQLite file, no cloud account.
 
 When several AI sessions work on the same projects, each one starts from zero. None of them knows what the others did, what is in progress, or why a decision was made. This board is the shared state: you drag cards in the browser, and Claude Code, Codex and other agents read and write the same cards through MCP, a REST API or a small CLI. **Every change is recorded with its author**, so opening a card shows which session did what.
 
@@ -136,6 +142,59 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 - No user accounts. See the security model above.
 - API routes, MCP tool names and server error messages are in Portuguese only. The interface translates the default board and column names for display, but agents still use the Portuguese names ("A fazer", "Revisão").
 - Reminders are shown in the board and available to agents; nothing is pushed to phone or e-mail.
+
+## Tool names in English
+
+The tool and route names are in Portuguese. An AI agent reads them without trouble; this table is for people.
+
+| Tool | What it does |
+|---|---|
+| `ver_quadro` | View a board: columns and cards |
+| `ver_card` | View one card with its full history |
+| `criar_card` | Create a card |
+| `mover_card` | Move a card to another column (how an agent reports progress) |
+| `atualizar_card` | Edit title, description or project |
+| `comentar_card` | Add a note to the card's history |
+| `arquivar_card` / `restaurar_card` | Archive a card / bring it back |
+| `pesquisar_cards` / `filtrar_cards` | Search / filter cards |
+| `atividade_recente` | Recent activity: what changed and who changed it |
+| `lembretes_pendentes` | Reminders that are overdue or due today |
+| `definir_lembrete` / `definir_repeticao` | Set a reminder / make a task recurring |
+| `listar_quadros` / `criar_quadro` | List boards / create a board |
+| `listar_tags` / `definir_tags` | List tags / set a card's tags |
+| `ver_backups` / `fazer_backup` | See backups / back up now |
+
+Default columns: `A fazer` (to do), `Em andamento` (in progress), `Revisão` (review), `Concluído` (done). The complete list is in [docs/API.md](docs/API.md).
+
+## FAQ
+
+### How do I make Claude Code and Codex share the same task list?
+
+Run agent-board, add its MCP endpoint to both (see [Connecting an agent](#connecting-an-agent)), and tell each agent to read the board when a session starts and to move its card when it starts and finishes a task. Both now see the same cards, and each change is signed with the agent's name.
+
+### How is this different from Trello, Linear or GitHub Projects?
+
+Those are built for people and reached by agents through an integration. agent-board is built the other way round: every operation an agent needs is an MCP tool, every write must say who made it, and the whole thing is one process and one SQLite file on your machine, with no account, no API quota and no data leaving your network. It has far fewer features than those products, on purpose.
+
+### How is this different from a TODO.md file in the repository?
+
+A file works for one agent in one repository. agent-board covers several projects at once, keeps a history per card (who created, moved and commented), lets two sessions write at the same time without overwriting each other, and gives you a board to look at and drag.
+
+### Does it give AI agents memory between sessions?
+
+It gives them shared, explicit memory of work: what is to do, what is in progress, what was decided and why, written in cards and comments that the next session reads. It does not store conversation transcripts and does no embedding or semantic search.
+
+### Which agents and clients work with it?
+
+Any client that speaks MCP over HTTP (streamable HTTP). It is used daily with Claude Code and Codex. Agents without MCP can use the REST API or the CLI in `cli/agent-board.mjs`, which needs only Node.js.
+
+### Can I use it with a team or over the internet?
+
+It is designed for one person and their agents on a private network. There are no user accounts: an API key protects the server, and the author of each change is declared, not verified. Read the [security model](#security-model) before exposing it beyond localhost or a VPN.
+
+### What does it need to run?
+
+Node.js 20 or newer, or Docker. No database server, no external service.
 
 ## Contributing
 

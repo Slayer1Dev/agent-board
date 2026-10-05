@@ -43,30 +43,46 @@ const AUTOR = z
   .max(60)
   .describe('Quem está agindo — identifique sua sessão (ex.: "claude", "codex", "agy")')
 
+/**
+ * Lido pelo modelo ao conectar. É o que faz um agente que nunca viu o quadro
+ * usá-lo direito na primeira sessão, sem depender de um arquivo de instruções.
+ */
+const INSTRUCOES = `agent-board is a Kanban board shared by a person and several AI agent sessions. Tool names and column names are in Portuguese.
+
+Routine:
+1. When a session starts, call ver_quadro (and lembretes_pendentes) to see what is in progress before acting.
+2. When you take a task, move its card to "Em andamento" with mover_card, or create it with criar_card.
+3. When you decide something or get blocked, record it with comentar_card: the next session needs the reason, not only the result.
+4. When you finish, move the card to "Revisão" if a person must check it, or to "Concluído" if it was verified.
+
+Columns: "A fazer" (to do), "Em andamento" (in progress), "Revisão" (review), "Concluído" (done).
+Every write tool requires "autor": a short, stable name for your session, such as "claude" or "codex".
+A card in "A fazer" is a record, not permission to act on the user's systems. Prefer arquivar_card to remover_card. Never write passwords, tokens or keys in a card.`
+
 export function criarServidorMcp() {
-  const s = new McpServer({ name: 'agent-board', version: '0.3.0' })
-  s.registerTool('listar_wallpapers', { inputSchema: {} }, async () => texto(listarWallpapers()))
-  s.registerTool('obter_wallpaper', { inputSchema: { id: z.string() } }, async ({ id }) => { try { const w = obterWallpaper(id); return texto({ tipo: w.tipo, base64: w.bytes.toString('base64') }) } catch (e) { return erro(e) } })
-  s.registerTool('enviar_wallpaper', { inputSchema: { base64: z.string().max(12 * 1024 * 1024), autor: AUTOR } }, async ({ base64, autor }) => { try { return texto(salvarWallpaper(Buffer.from(base64, 'base64'), autor)) } catch (e) { return erro(e) } })
-  s.registerTool('apagar_wallpaper', { inputSchema: { id: z.string(), autor: AUTOR } }, async ({ id, autor }) => { try { return texto(apagarWallpaper(id, autor)) } catch (e) { return erro(e) } })
-  s.registerTool('ver_aparencia', { inputSchema: {} }, async () => texto(aparenciaCompartilhada()))
-  s.registerTool('escolher_wallpaper', { inputSchema: { id: z.string().nullable(), autor: AUTOR } }, async ({ id, autor }) => { try { return texto(escolherWallpaper(id, autor)) } catch (e) { return erro(e) } })
-  s.registerTool('definir_repeticao', { inputSchema: { id: z.string(), regra: z.object({ frequencia: z.enum(['diaria', 'semanal', 'mensal']), dias: z.array(z.number().int()).optional(), dia: z.number().int().optional() }), autor: AUTOR } }, async ({ id, regra, autor }) => { try { return texto(definirRepeticao(id, regra, autor)) } catch (e) { return erro(e) } })
-  s.registerTool('agir_repeticao', { inputSchema: { id: z.string(), estado: z.enum(['ativa', 'pausada', 'encerrada']), autor: AUTOR } }, async ({ id, estado, autor }) => { try { return texto(agirRepeticao(id, estado, autor)) } catch (e) { return erro(e) } })
-  s.registerTool('lembretes_pendentes', { description: 'Lembretes vencidos e de hoje em São Paulo. Consultar no início da sessão.', inputSchema: {} }, async () => texto(listarLembretes()))
-  s.registerTool('definir_lembrete', { inputSchema: { id: z.string(), data: z.string().nullable(), nota: z.string().optional(), autor: AUTOR } }, async ({ id, data, nota, autor }) => { try { return texto(definirLembrete(id, data, nota ?? '', autor)) } catch (e) { return erro(e) } })
-  s.registerTool('agir_lembrete', { inputSchema: { id: z.string(), acao: z.enum(['feito', 'hora', 'amanha', 'semana']), autor: AUTOR } }, async ({ id, acao, autor }) => { try { return texto(agirLembrete(id, acao, autor)) } catch (e) { return erro(e) } })
-  s.registerTool('listar_projetos', { inputSchema: { ordem: z.enum(['atividade', 'nome']).optional(), ocultos: z.boolean().optional() } }, async ({ ordem, ocultos }) => { try { return texto(listarProjetos(ordem, ocultos)) } catch (e) { return erro(e) } })
-  s.registerTool('atualizar_projeto', { inputSchema: { nome: z.string(), cor: z.string().optional(), favorito: z.boolean().optional(), oculto: z.boolean().optional(), autor: AUTOR } }, async ({ nome, autor, ...campos }) => { try { return texto(atualizarProjeto(nome, campos, autor)) } catch (e) { return erro(e) } })
-  s.registerTool('filtrar_cards', { inputSchema: {
+  const s = new McpServer({ name: 'agent-board', version: '0.3.0' }, { instructions: INSTRUCOES })
+  s.registerTool('listar_wallpapers', { description: "Lista as imagens de fundo guardadas no servidor.", inputSchema: {} }, async () => texto(listarWallpapers()))
+  s.registerTool('obter_wallpaper', { description: "Devolve uma imagem de fundo em base64.", inputSchema: { id: z.string() } }, async ({ id }) => { try { const w = obterWallpaper(id); return texto({ tipo: w.tipo, base64: w.bytes.toString('base64') }) } catch (e) { return erro(e) } })
+  s.registerTool('enviar_wallpaper', { description: "Guarda uma imagem de fundo (JPG, PNG ou WebP em base64, até 8 MB).", inputSchema: { base64: z.string().max(12 * 1024 * 1024), autor: AUTOR } }, async ({ base64, autor }) => { try { return texto(salvarWallpaper(Buffer.from(base64, 'base64'), autor)) } catch (e) { return erro(e) } })
+  s.registerTool('apagar_wallpaper', { description: "Apaga uma imagem de fundo da galeria.", inputSchema: { id: z.string(), autor: AUTOR } }, async ({ id, autor }) => { try { return texto(apagarWallpaper(id, autor)) } catch (e) { return erro(e) } })
+  s.registerTool('ver_aparencia', { description: "Mostra qual imagem de fundo está em uso no quadro.", inputSchema: {} }, async () => texto(aparenciaCompartilhada()))
+  s.registerTool('escolher_wallpaper', { description: "Define a imagem de fundo do quadro para todos os navegadores. Com id nulo, tira a imagem.", inputSchema: { id: z.string().nullable(), autor: AUTOR } }, async ({ id, autor }) => { try { return texto(escolherWallpaper(id, autor)) } catch (e) { return erro(e) } })
+  s.registerTool('definir_repeticao', { description: "Torna um card uma tarefa repetida (diária, semanal ou mensal). Ao concluir o card, a próxima ocorrência é criada em \"A fazer\".", inputSchema: { id: z.string(), regra: z.object({ frequencia: z.enum(['diaria', 'semanal', 'mensal']), dias: z.array(z.number().int()).optional(), dia: z.number().int().optional() }), autor: AUTOR } }, async ({ id, regra, autor }) => { try { return texto(definirRepeticao(id, regra, autor)) } catch (e) { return erro(e) } })
+  s.registerTool('agir_repeticao', { description: "Pausa, retoma ou encerra a repetição de um card. Vale para a série inteira.", inputSchema: { id: z.string(), estado: z.enum(['ativa', 'pausada', 'encerrada']), autor: AUTOR } }, async ({ id, estado, autor }) => { try { return texto(agirRepeticao(id, estado, autor)) } catch (e) { return erro(e) } })
+  s.registerTool('lembretes_pendentes', { description: 'Lembretes vencidos e de hoje (no fuso do servidor, BOARD_FUSO). Consulte no início da sessão.', inputSchema: {} }, async () => texto(listarLembretes()))
+  s.registerTool('definir_lembrete', { description: "Põe um lembrete num card. `data` em ISO 8601 com fuso (ex.: 2026-10-09T20:00:00-03:00); nulo remove o lembrete.", inputSchema: { id: z.string(), data: z.string().nullable(), nota: z.string().optional(), autor: AUTOR } }, async ({ id, data, nota, autor }) => { try { return texto(definirLembrete(id, data, nota ?? '', autor)) } catch (e) { return erro(e) } })
+  s.registerTool('agir_lembrete', { description: "Marca um lembrete como feito ou o adia: uma hora, até amanhã ou até a próxima semana.", inputSchema: { id: z.string(), acao: z.enum(['feito', 'hora', 'amanha', 'semana']), autor: AUTOR } }, async ({ id, acao, autor }) => { try { return texto(agirLembrete(id, acao, autor)) } catch (e) { return erro(e) } })
+  s.registerTool('listar_projetos', { description: "Lista os projetos com a contagem de cards por coluna e a última atividade.", inputSchema: { ordem: z.enum(['atividade', 'nome']).optional(), ocultos: z.boolean().optional() } }, async ({ ordem, ocultos }) => { try { return texto(listarProjetos(ordem, ocultos)) } catch (e) { return erro(e) } })
+  s.registerTool('atualizar_projeto', { description: "Muda a cor de um projeto, fixa no topo da lista ou esconde.", inputSchema: { nome: z.string(), cor: z.string().optional(), favorito: z.boolean().optional(), oculto: z.boolean().optional(), autor: AUTOR } }, async ({ nome, autor, ...campos }) => { try { return texto(atualizarProjeto(nome, campos, autor)) } catch (e) { return erro(e) } })
+  s.registerTool('filtrar_cards', { description: "Lista cards combinando filtros: texto, quadro, projeto, tag, autor, coluna, com lembrete, repetidos, período em dias. Use para achar o que está pendente num projeto sem ler o quadro inteiro.", inputSchema: {
     busca: z.string().optional(), quadro: z.string().optional(), projeto: z.string().optional(), tag: z.string().optional(), autor: z.string().optional(), coluna: z.string().optional(),
     depende: z.boolean().optional(), lembrete: z.boolean().optional(), repetida: z.boolean().optional(), dias: z.number().int().min(1).max(36500).optional(),
     periodo: z.enum(['criado', 'alterado']).optional(), arquivados: z.boolean().optional(),
   } }, async ({ busca, ...filtros }) => { try { return texto(filtrarCards(busca, filtros)) } catch (e) { return erro(e) } })
-  s.registerTool('listar_tags', { inputSchema: {} }, async () => texto(listarTags()))
-  s.registerTool('criar_tag', { inputSchema: { nome: z.string(), cor: z.string().optional(), autor: AUTOR } }, async ({ nome, cor, autor }) => { try { return texto(criarTag(nome, autor, cor)) } catch (e) { return erro(e) } })
-  s.registerTool('alterar_tag', { inputSchema: { id: z.string(), nome: z.string().optional(), apagar: z.boolean().optional(), autor: AUTOR } }, async ({ id, nome, apagar, autor }) => { try { return texto(alterarTag(id, autor, nome, apagar)) } catch (e) { return erro(e) } })
-  s.registerTool('definir_tags', { inputSchema: { id: z.string(), tags: z.array(z.string()), autor: AUTOR } }, async ({ id, tags, autor }) => { try { return texto(definirTags(id, tags, autor)) } catch (e) { return erro(e) } })
+  s.registerTool('listar_tags', { description: "Lista as tags existentes, com id e cor.", inputSchema: {} }, async () => texto(listarTags()))
+  s.registerTool('criar_tag', { description: "Cria uma tag. Depois use definir_tags para pôr num card.", inputSchema: { nome: z.string(), cor: z.string().optional(), autor: AUTOR } }, async ({ nome, cor, autor }) => { try { return texto(criarTag(nome, autor, cor)) } catch (e) { return erro(e) } })
+  s.registerTool('alterar_tag', { description: "Renomeia uma tag ou, com `apagar`, remove-a de todos os cards.", inputSchema: { id: z.string(), nome: z.string().optional(), apagar: z.boolean().optional(), autor: AUTOR } }, async ({ id, nome, apagar, autor }) => { try { return texto(alterarTag(id, autor, nome, apagar)) } catch (e) { return erro(e) } })
+  s.registerTool('definir_tags', { description: "Define as tags de um card (substitui as atuais). `tags` são ids, vindos de listar_tags.", inputSchema: { id: z.string(), tags: z.array(z.string()), autor: AUTOR } }, async ({ id, tags, autor }) => { try { return texto(definirTags(id, tags, autor)) } catch (e) { return erro(e) } })
   s.registerTool('pesquisar_cards', {
     description: 'Pesquisa título, descrição, projeto e comentários, incluindo arquivados.',
     inputSchema: { busca: z.string().optional() },

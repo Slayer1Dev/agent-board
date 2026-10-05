@@ -1,7 +1,7 @@
 {
   "name": "agent-board-server",
   "version": "0.3.0",
-  "description": "API REST + servidor MCP do agent-board",
+  "description": "agent-board server: REST API and MCP server for a self-hosted Kanban board that AI coding agents share",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
@@ -9,11 +9,27 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run src"
   },
-  "keywords": ["kanban", "mcp", "ai-agents", "claude-code", "codex"],
+  "keywords": [
+    "kanban",
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "ai-agents",
+    "claude-code",
+    "codex",
+    "task-management",
+    "self-hosted",
+    "sqlite"
+  ],
   "author": "Lucas Barbosa",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/Slayer1Dev/agent-board.git" },
-  "engines": { "node": ">=20" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Slayer1Dev/agent-board.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "better-sqlite3": "^12.11.1",
@@ -30,5 +46,9 @@
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
   },
-  "type": "module"
+  "type": "module",
+  "homepage": "https://github.com/Slayer1Dev/agent-board#readme",
+  "bugs": {
+    "url": "https://github.com/Slayer1Dev/agent-board/issues"
+  }
 }
