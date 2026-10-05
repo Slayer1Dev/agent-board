@@ -8,7 +8,8 @@ import { projetoDoCard } from './components/Identidade'
 import { useAutores } from './components/useAutores'
 import { Arquivados } from './components/Arquivados'
 import { Busca } from './components/Busca'
-import { Filtros } from './components/Filtros'
+import { Filtros, FiltrosAtivos } from './components/Filtros'
+import { useTags } from './components/useTags'
 import { Projetos } from './components/Projetos'
 import { LembretesTopo } from './components/Lembretes'
 import { Aparencia, lerPreferencias, salvarPreferencias, type Preferencias } from './components/Aparencia'
@@ -92,6 +93,7 @@ export default function App() {
   // Guarda a assinatura do último estado para não re-renderizar a cada poll
   // quando nada mudou — senão o quadro pisca de 4 em 4 segundos.
   const assinatura = useRef('')
+  const tags = useTags(assinatura.current)
 
   const carregar = useCallback(async () => {
     try {
@@ -225,7 +227,6 @@ export default function App() {
   const projetos = [...new Set(quadro.colunas.flatMap(c => c.cards.map(projetoDoCard)))].sort((a, b) => a.localeCompare(b, 'pt-BR'))
   const filtrar = (c: Card) => !Object.keys(filtros).length || !!idsFiltrados?.has(c.id)
   const visiveis = quadro.colunas.reduce((n, c) => n + c.cards.filter(filtrar).length, 0)
-  const opcoesProjeto = <><option value="">Todos os projetos</option>{projetos.filter(Boolean).map(p => <option key={p} value={p}>{p}</option>)}{projetos.includes('') && <option value="__sem__">Sem projeto</option>}</>
 
   return (
     <div className={`app fundo--${preferencias.fundo}${preferencias.wallpaper ? ' com-wallpaper' : ''}${preferencias.largura ? ' listas-fixas' : ''}`} style={{ '--largura-lista': `${preferencias.largura}px`, '--wallpaper': preferencias.wallpaper ? `url("${preferencias.wallpaper}")` : 'none' } as CSSProperties}>
@@ -234,34 +235,28 @@ export default function App() {
           <span className="marca" aria-hidden="true"><i /><i /><i /></span>
           <h1 className="topo__titulo" title="agent-board · espaço de trabalho">{quadro.nome}</h1>
         </div>
-        <div className="filtro filtro--topo">
-          <label htmlFor="projeto" className="so-leitor">Projeto</label>
-          <select id="projeto" value={projeto} onChange={e => setProjeto(e.target.value)}>{opcoesProjeto}</select>
-          {projeto && <span className="filtro__contagem">{visiveis} de {total}</span>}
-        </div>
-        <div className="menu" ref={menuRef}>
+        <Busca aoAbrir={setSelecionado} versao={assinatura.current} />
+        <div className="topo__acoes">
+          <Filtros valor={filtros} aoMudar={setFiltros} quadro={quadro} tags={tags} />
+          <Projetos aoEscolher={setProjeto} atual={projeto} versao={assinatura.current} semProjeto={projetos.includes('')} />
           <LembretesTopo versao={assinatura.current} aoAbrir={setSelecionado} />
-          <button ref={botaoMenuRef} className={`btn menu__botao${erro ? ' menu__botao--alerta' : ''}`} aria-label={erro ? 'Ajustes (conexão interrompida)' : 'Ajustes'} title="Ajustes" aria-haspopup="menu" aria-expanded={menuAberto} aria-controls="menu-ajustes" onClick={() => setMenuAberto(a => !a)} onKeyDown={e => { if (e.key === 'ArrowDown') { e.preventDefault(); setMenuAberto(true) } }}>
-            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="3.5" cy="9" r="1.6" fill="currentColor" /><circle cx="9" cy="9" r="1.6" fill="currentColor" /><circle cx="14.5" cy="9" r="1.6" fill="currentColor" /></svg>
-          </button>
-          {menuAberto && (
-            <div id="menu-ajustes" className="menu__lista" role="menu" aria-label="Ajustes" onKeyDown={teclasDoMenu}>
-              <div className="menu__filtro">
-                <label htmlFor="projeto-menu">Projeto</label>
-                <select id="projeto-menu" value={projeto} onChange={e => setProjeto(e.target.value)}>{opcoesProjeto}</select>
+          <div className="menu" ref={menuRef}>
+            <button ref={botaoMenuRef} className={`btn menu__botao${erro ? ' menu__botao--alerta' : ''}`} aria-label={erro ? 'Ajustes (conexão interrompida)' : 'Ajustes'} title="Ajustes" aria-haspopup="menu" aria-expanded={menuAberto} aria-controls="menu-ajustes" onClick={() => setMenuAberto(a => !a)} onKeyDown={e => { if (e.key === 'ArrowDown') { e.preventDefault(); setMenuAberto(true) } }}>
+              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="3.5" cy="9" r="1.6" fill="currentColor" /><circle cx="9" cy="9" r="1.6" fill="currentColor" /><circle cx="14.5" cy="9" r="1.6" fill="currentColor" /></svg>
+            </button>
+            {menuAberto && (
+              <div id="menu-ajustes" className="menu__lista" role="menu" aria-label="Ajustes" onKeyDown={teclasDoMenu}>
+                <button role="menuitem" className="menu__item" disabled={!acoes.length || desfazendo} onClick={() => { fecharMenu(); void desfazer() }}><span>{desfazendo ? 'Desfazendo…' : 'Desfazer'}</span><kbd>Ctrl+Z</kbd></button>
+                <button role="menuitem" className="menu__item" onClick={() => { fecharMenu(); setArquivadosAbertos(true) }}>Arquivados</button>
+                <button role="menuitem" className="menu__item" onClick={() => { fecharMenu(); setPersonalizando(true) }}>Personalizar</button>
+                <div className="menu__separador" role="separator" />
+                <div className="menu__info"><span className={`conexao${erro ? ' conexao--erro' : ''}`}>{erro ? 'Conexão interrompida' : 'Atualização automática ativa'}</span><span>{Object.keys(filtros).length ? `${visiveis} de ${total}` : total} cards</span></div>
               </div>
-              <button role="menuitem" className="menu__item" disabled={!acoes.length || desfazendo} onClick={() => { fecharMenu(); void desfazer() }}><span>{desfazendo ? 'Desfazendo…' : 'Desfazer'}</span><kbd>Ctrl+Z</kbd></button>
-              <button role="menuitem" className="menu__item" onClick={() => { fecharMenu(); setArquivadosAbertos(true) }}>Arquivados</button>
-              <button role="menuitem" className="menu__item" onClick={() => { fecharMenu(); setPersonalizando(true) }}>Personalizar</button>
-              <div className="menu__separador" role="separator" />
-              <div className="menu__info"><span className={`conexao${erro ? ' conexao--erro' : ''}`}>{erro ? 'Conexão interrompida' : 'Atualização automática ativa'}</span><span>{projeto ? `${visiveis} de ${total}` : total} cards</span></div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
-      <Busca aoAbrir={setSelecionado} versao={assinatura.current} />
-      <Filtros valor={filtros} aoMudar={setFiltros} quadro={quadro} />
-      <Projetos aoEscolher={setProjeto} atual={projeto} versao={assinatura.current} />
+      <FiltrosAtivos valor={filtros} aoMudar={setFiltros} tags={tags} visiveis={visiveis} total={total} />
       {avisoAcao && <div className="aviso-acao" role="status"><span>{avisoAcao}</span><button onClick={() => setAvisoAcao('')} aria-label="Fechar aviso">×</button></div>}
       {erroPreferencia && <p className="aviso-conexao" role="alert">{erroPreferencia}</p>}
       {erro && <div className="aviso-conexao" role="alert"><strong>Não foi possível atualizar o quadro.</strong> Os últimos dados continuam visíveis. Tentando reconectar… <span>{erro}</span></div>}

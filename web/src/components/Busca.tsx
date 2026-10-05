@@ -7,31 +7,66 @@ function Destaque({ texto, busca }: { texto: string; busca: string }) {
   return <>{texto.slice(0, inicio)}<mark>{texto.slice(inicio, inicio + busca.length)}</mark><Destaque texto={texto.slice(inicio + busca.length)} busca={busca} /></>
 }
 
+type Resultado = Card & { coluna: string; trecho: string }
+
+/** Busca do cabeçalho: campo compacto e resultados em lista logo abaixo. Ctrl+K foca. */
 export function Busca({ aoAbrir, versao }: { aoAbrir: (id: string) => void; versao: string }) {
   const [busca, setBusca] = useState('')
-  const [resultados, setResultados] = useState<(Card & { coluna: string; trecho: string })[]>([])
+  const [resultados, setResultados] = useState<Resultado[]>([])
   const [erro, setErro] = useState('')
   const [consultaPronta, setConsultaPronta] = useState('')
+  const raiz = useRef<HTMLDivElement>(null)
   const campo = useRef<HTMLInputElement>(null)
+  const termo = busca.trim()
+
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); campo.current?.focus() }
-      if (e.key === 'Escape' && document.activeElement === campo.current) setBusca('')
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); campo.current?.focus(); campo.current?.select() }
+      if (e.key === 'Escape' && raiz.current?.contains(document.activeElement)) { setBusca(''); campo.current?.blur() }
     }
+    const fora = (e: PointerEvent) => { if (!raiz.current?.contains(e.target as Node)) setBusca('') }
     window.addEventListener('keydown', tecla)
-    return () => window.removeEventListener('keydown', tecla)
+    document.addEventListener('pointerdown', fora)
+    return () => { window.removeEventListener('keydown', tecla); document.removeEventListener('pointerdown', fora) }
   }, [])
+
   useEffect(() => {
+    if (!termo) return
     let ativo = true
     const t = setTimeout(() => {
-      if (busca.trim()) api.pesquisar(busca.trim()).then(r => { if (ativo) { setResultados(r); setErro(''); setConsultaPronta(busca.trim()) } }).catch(e => { if (ativo) { setErro((e as Error).message); setConsultaPronta(busca.trim()) } })
+      api.pesquisar(termo)
+        .then(r => { if (ativo) { setResultados(r); setErro(''); setConsultaPronta(termo) } })
+        .catch(e => { if (ativo) { setErro((e as Error).message); setConsultaPronta(termo) } })
     }, 180)
     return () => { ativo = false; clearTimeout(t) }
-  }, [busca, versao])
-  return <section className="busca" aria-label="Pesquisa de cards">
-    <label className="busca__campo">Buscar no quadro <input ref={campo} type="search" placeholder="Título, contexto, comentários… · Ctrl+K" value={busca} onChange={e => setBusca(e.target.value)} /></label>
-    {busca.trim() && <div className="busca__resultados" aria-live="polite">
-      {consultaPronta !== busca.trim() ? <p>Buscando…</p> : erro ? <p role="alert">{erro}</p> : <><p>{resultados.length} resultados · inclui arquivados</p>{resultados.map(c => <button key={c.id} onClick={() => { aoAbrir(c.id); setBusca('') }}><strong><Destaque texto={c.titulo} busca={busca.trim()} /></strong><small>{c.projeto || 'Sem projeto'} · {c.coluna}{c.arquivado_em ? ' · Arquivado' : ''}</small><span><Destaque texto={c.trecho} busca={busca.trim()} /></span></button>)}</>}
-    </div>}
-  </section>
+  }, [termo, versao])
+
+  return (
+    <div className="busca" role="search" ref={raiz}>
+      <label className="busca__campo">
+        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.6" /><path d="m10.5 10.5 3.2 3.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+        <span className="so-leitor">Buscar no quadro</span>
+        <input ref={campo} type="search" placeholder="Buscar cards" value={busca} onChange={e => setBusca(e.target.value)} />
+        <kbd>Ctrl K</kbd>
+      </label>
+      {termo && (
+        <div className="busca__resultados" aria-live="polite">
+          {consultaPronta !== termo ? <p className="busca__info">Buscando…</p>
+            : erro ? <p className="busca__info" role="alert">{erro}</p>
+            : (
+              <>
+                <p className="busca__info">{resultados.length === 1 ? '1 resultado' : `${resultados.length} resultados`} · inclui arquivados</p>
+                {resultados.map(c => (
+                  <button key={c.id} type="button" className="busca__item" onClick={() => { aoAbrir(c.id); setBusca('') }}>
+                    <strong><Destaque texto={c.titulo} busca={termo} /></strong>
+                    <small>{c.projeto || 'Sem projeto'} · {c.coluna}{c.arquivado_em ? ' · Arquivado' : ''}</small>
+                    {c.trecho && <span><Destaque texto={c.trecho} busca={termo} /></span>}
+                  </button>
+                ))}
+              </>
+            )}
+        </div>
+      )}
+    </div>
+  )
 }
