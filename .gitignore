@@ -5,3 +5,13 @@ dist
 *.db-wal
 .env
 .DS_Store
+
+# Dados e sobras locais
+backups/
+wallpapers/
+.integracao-*/
+.teste-wallpapers-*/
+RELATORIO.md
+
+# Configuração de implantação de cada um (a partir de web/vite.proxy.example.mjs)
+web/vite.servidor.config.mjs

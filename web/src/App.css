@@ -63,7 +63,6 @@ mark { background: #f5d392; color: #29200c; border-radius: 2px; }
 .card__autoria-carregando { color: var(--dim); font-size: 10px; }
 .autor { --autor: var(--a-web); color: var(--autor); font-size: 10px; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; line-height: 1.5; }
 .autor__marca { display: inline-grid; place-items: center; width: 19px; height: 18px; border: 1px solid currentColor; border-radius: 4px; font: 600 8px var(--mono); }
-.autor--lucas { --autor: var(--a-lucas); }
 .autor--claude { --autor: var(--a-claude); }
 .autor--codex { --autor: var(--a-codex); }
 .autor--astra { --autor: var(--a-astra); }

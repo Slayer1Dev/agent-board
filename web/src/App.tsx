@@ -230,7 +230,7 @@ export default function App() {
         {erro ? (
           <>
             <p className="vazio__erro">Não consegui falar com o servidor.</p>
-            <p className="vazio__dica">Verifique a conexão com a rede Tailscale. Tentaremos novamente automaticamente.</p><p className="vazio__tecnico">{erro}</p>
+            <p className="vazio__dica">Verifique se o servidor do quadro está no ar e se este computador o alcança. Tentaremos novamente automaticamente.</p><p className="vazio__tecnico">{erro}</p>
           </>
         ) : (
           <><div className="carregando" aria-hidden="true"><i /><i /><i /><i /></div><h1>Carregando o quadro</h1><p>Buscando cards e atividade recente…</p></>

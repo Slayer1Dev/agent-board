@@ -1,6 +1,6 @@
 {
   "name": "agent-board-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "API REST + servidor MCP do agent-board",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -9,12 +9,14 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["kanban", "mcp", "ai-agents", "claude-code", "codex"],
+  "author": "Lucas Barbosa",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/Slayer1Dev/agent-board.git" },
+  "engines": { "node": ">=20" },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "better-sqlite3": "^13.0.3",
+    "better-sqlite3": "^12.11.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "zod": "^4.6.5"

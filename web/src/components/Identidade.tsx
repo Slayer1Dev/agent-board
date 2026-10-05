@@ -15,17 +15,23 @@ export function tituloDoCard(card: Card) {
   return titulo || card.titulo
 }
 
-export function Projeto({ nome }: { nome: string }) {
+/** Matiz estável (0 a 359) derivado de um texto: o mesmo nome dá sempre a mesma cor. */
+function matiz(texto: string) {
   let hash = 0
-  for (const letra of nome.toLowerCase()) hash = ((hash * 31) + letra.charCodeAt(0)) >>> 0
-  hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b) >>> 0
-  const estilo = { '--projeto': `hsl(${hash % 360} 65% var(--projeto-luz, 78%))` } as CSSProperties
+  for (const letra of texto.toLowerCase()) hash = ((hash * 31) + letra.charCodeAt(0)) >>> 0
+  return (Math.imul(hash ^ (hash >>> 16), 0x45d9f3b) >>> 0) % 360
+}
+
+export function Projeto({ nome }: { nome: string }) {
+  const estilo = { '--projeto': `hsl(${matiz(nome)} 65% var(--projeto-luz, 78%))` } as CSSProperties
   return <span className={`projeto${nome ? '' : ' projeto--vazio'}`} style={estilo} title={nome || 'Sem projeto'}>{nome || 'Sem projeto'}</span>
 }
 
 export function Autor({ nome }: { nome?: string | null }) {
-  const conhecido = ['claude', 'codex', 'astra', 'agy', 'lucas', 'web'].includes(nome?.toLowerCase() || '')
-  return <span className={`autor autor--${conhecido ? nome!.toLowerCase() : 'outro'}`} title={nome ? `Autor: ${nome}` : 'Autoria não registrada no histórico'}><span className="autor__marca" aria-hidden="true">{nome?.slice(0, 2).toUpperCase() || '—'}</span>{nome || 'Sem autoria'}</span>
+  // Agentes comuns têm cor própria no tema; qualquer outro autor ganha uma cor estável pelo nome.
+  const conhecido = ['claude', 'codex', 'astra', 'agy', 'web'].includes(nome?.toLowerCase() || '')
+  const estilo = !conhecido && nome ? { '--autor': `hsl(${matiz(nome)} 55% var(--projeto-luz, 78%))` } as CSSProperties : undefined
+  return <span className={`autor autor--${conhecido ? nome!.toLowerCase() : 'outro'}`} style={estilo} title={nome ? `Autor: ${nome}` : 'Autoria não registrada no histórico'}><span className="autor__marca" aria-hidden="true">{nome?.slice(0, 2).toUpperCase() || '—'}</span>{nome || 'Sem autoria'}</span>
 }
 
 export function autorCriacao(eventos: Evento[]) {
