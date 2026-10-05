@@ -1,5 +1,6 @@
 import express, { type Request, type Response, type NextFunction } from 'express'
 import cors from 'cors'
+import { timingSafeEqual } from 'node:crypto'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { semear } from './db.js'
 import { criarServidorMcp } from './mcp.js'
@@ -30,32 +31,67 @@ const PORTA = Number(process.env.BOARD_PORT ?? 8078)
 const HOST = process.env.BOARD_HOST ?? '127.0.0.1'
 const CHAVE = process.env.BOARD_API_KEY ?? ''
 
+const lista = (valor: string | undefined) => (valor ?? '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean)
+const LOCAIS = ['127.0.0.1', 'localhost', '::1']
+/** Origens de navegador autorizadas a chamar a API de outro endereço (CORS). Vazio = nenhuma. */
+const ORIGENS = lista(process.env.BOARD_CORS_ORIGENS)
+/** Nomes pelos quais o servidor pode ser chamado quando não há chave. */
+const HOSTS = new Set([...LOCAIS, HOST.toLowerCase(), ...lista(process.env.BOARD_HOSTS)])
+const ABERTO = process.env.BOARD_PERMITIR_ABERTO === '1'
+
+// Sem chave, quem alcança a porta lê e escreve tudo. Fora de localhost isso só
+// acontece se alguém pedir explicitamente.
+if (!CHAVE && !LOCAIS.includes(HOST.toLowerCase()) && !ABERTO) {
+  console.error(`Recusando iniciar: BOARD_HOST=${HOST} sem BOARD_API_KEY deixaria o quadro aberto para a rede.`)
+  console.error('Defina BOARD_API_KEY, ou BOARD_PERMITIR_ABERTO=1 se a porta já estiver protegida por outro meio.')
+  process.exit(1)
+}
+
 semear()
 
 const app = express()
+app.disable('x-powered-by')
 app.use(express.json({ limit: '12mb' }))
-app.use(cors())
+// Por padrão não há CORS: a interface fala com a API pelo mesmo endereço (proxy).
+if (ORIGENS.length) app.use(cors({ origin: ORIGENS }))
 
 /**
- * Exige a chave quando BOARD_API_KEY está definida. Sem chave configurada o
- * servidor sobe aberto — aceitável apenas em 127.0.0.1, e avisado na inicialização.
+ * Sem chave, a proteção é o endereço. Um site qualquer aberto no navegador
+ * consegue mandar requisições para 127.0.0.1, então recusamos:
+ *  - Host desconhecido (ataque de DNS rebinding);
+ *  - origem de navegador que não seja a própria interface nem uma origem declarada.
+ * Com chave definida nada disto se aplica: quem não tem a chave leva 401.
  */
-function autenticar(req: Request, res: Response, next: NextFunction) {
-  if (!CHAVE) return next()
-  const cabecalho = req.header('authorization') ?? ''
-  const enviada = cabecalho.replace(/^Bearer\s+/i, '')
-  if (enviada !== CHAVE) return res.status(401).json({ erro: 'não autorizado' })
+function protegerSemChave(req: Request, res: Response, next: NextFunction) {
+  if (CHAVE) return next()
+  const host = (req.headers.host ?? '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase()
+  if (!ABERTO && !HOSTS.has(host)) return res.status(403).json({ erro: 'host não permitido; defina BOARD_HOSTS ou BOARD_API_KEY' })
+  const origem = req.headers.origin?.toLowerCase()
+  if (origem && !ORIGENS.includes(origem)) {
+    let hostOrigem = ''
+    try { hostOrigem = new URL(origem).hostname.replace(/^\[|\]$/g, '') } catch { /* origem malformada: recusa abaixo */ }
+    if (hostOrigem !== host) return res.status(403).json({ erro: 'origem não permitida; defina BOARD_CORS_ORIGENS ou BOARD_API_KEY' })
+  }
   next()
 }
 
-const autor = (req: Request) => (req.header('x-autor') || req.body?.autor || 'web') as string
+/** Exige a chave quando BOARD_API_KEY está definida. Comparação em tempo constante. */
+function autenticar(req: Request, res: Response, next: NextFunction) {
+  if (!CHAVE) return next()
+  const enviada = Buffer.from((req.header('authorization') ?? '').replace(/^Bearer\s+/i, ''))
+  const esperada = Buffer.from(CHAVE)
+  if (enviada.length !== esperada.length || !timingSafeEqual(enviada, esperada)) return res.status(401).json({ erro: 'não autorizado' })
+  next()
+}
+
+const autor = (req: Request) => String(req.header('x-autor') || req.body?.autor || 'web').trim() || 'web'
 
 app.get('/saude', (_req, res) => res.json({ ok: true }))
 
 // ---------- API REST (consumida pela interface) ----------
 
 const api = express.Router()
-api.use(autenticar)
+api.use(protegerSemChave, autenticar)
 
 api.get('/quadro', (req, res) => res.json(quadroCompleto(req.query.id?.toString() || req.query.quadro?.toString())))
 api.get('/quadros', (_req, res) => res.json(resumoQuadros()))
@@ -171,7 +207,7 @@ app.use((e: Error, _req: Request, res: Response, _next: NextFunction) => { res.s
 // de sessão para expirar — o custo é não suportar notificações do servidor,
 // que este quadro não usa.
 
-app.post('/mcp', autenticar, async (req, res) => {
+app.post('/mcp', protegerSemChave, autenticar, async (req, res) => {
   try {
     const servidor = criarServidorMcp()
     const transporte = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
@@ -192,6 +228,6 @@ app.listen(PORTA, HOST, () => {
   console.log(`  MCP  /mcp`)
   if (!CHAVE) {
     console.log('  ⚠️  BOARD_API_KEY não definida — servidor SEM autenticação.')
-    if (HOST !== '127.0.0.1') console.log('  ⚠️  E exposto fora de localhost. Defina uma chave.')
+    console.log(ABERTO ? '  ⚠️  BOARD_PERMITIR_ABERTO=1: qualquer um que alcance esta porta lê e escreve.' : '      Aceita só chamadas feitas a este próprio endereço (localhost).')
   }
 })

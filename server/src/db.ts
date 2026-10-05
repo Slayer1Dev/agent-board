@@ -114,6 +114,8 @@ export function semear() {
 }
 
 export function registrar(cardId: string | null, autor: string, acao: string, detalhe = '') {
+  // O autor é texto livre vindo de fora; sem limite, um nome gigante entraria em todo o histórico.
+  if (typeof autor !== 'string' || !autor.trim() || autor.length > 60) throw new Error('Autor deve ter entre 1 e 60 caracteres.')
   db.prepare(
     'INSERT INTO eventos (id, card_id, autor, acao, detalhe) VALUES (?, ?, ?, ?, ?)',
   ).run(uid(), cardId, autor, acao, detalhe)

@@ -105,7 +105,9 @@ function gerarProxima(id: string, autor: string) {
   registrar(id, autor, 'gerou ocorrência', `${novo.id} · ${periodo}`)
 }
 
-function diaLocal(data: Date) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(data) }
+/** Fuso em que um lembrete conta como "de hoje". */
+const FUSO = process.env.BOARD_FUSO || 'America/Sao_Paulo'
+function diaLocal(data: Date) { return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit' }).format(data) }
 export function estadoLembrete(card: Pick<Card, 'lembrete_em' | 'lembrete_feito_em'>, agora = new Date()): Card['lembrete_estado'] {
   if (!card.lembrete_em) return null
   if (card.lembrete_feito_em) return 'feito'
@@ -650,7 +652,17 @@ function alterar(id: string | null, autor: string, tipo: string, executar: () =>
   })()
 }
 
+const LIMITE = { titulo: 300, texto: 50000, projeto: 80 }
+/** Limites de tamanho dos textos livres, iguais para a API REST e para o MCP. */
+function exigirTamanho(valor: unknown, campo: string, max: number) {
+  if (typeof valor === 'string' && valor.length > max) throw new Error(`${campo} deve ter até ${max} caracteres.`)
+}
+
 export function criarCard(opts: Parameters<typeof criarCardOriginal>[0]): Card {
+  if (typeof opts.titulo !== 'string' || !opts.titulo.trim()) throw new Error('título é obrigatório')
+  exigirTamanho(opts.titulo, 'Título', LIMITE.titulo)
+  exigirTamanho(opts.descricao, 'Descrição', LIMITE.texto)
+  exigirTamanho(opts.projeto, 'Projeto', LIMITE.projeto)
   return alterar(null, opts.autor, 'criação', () => {
     const card = criarCardOriginal(opts)
     if (opts.tags) definirTags(card.id, opts.tags, opts.autor)
@@ -658,6 +670,9 @@ export function criarCard(opts: Parameters<typeof criarCardOriginal>[0]): Card {
   })
 }
 export function atualizarCard(id: string, campos: Parameters<typeof atualizarCardOriginal>[1], autor: string, revisao?: number): Card {
+  exigirTamanho(campos.titulo, 'Título', LIMITE.titulo)
+  exigirTamanho(campos.descricao, 'Descrição', LIMITE.texto)
+  exigirTamanho(campos.projeto, 'Projeto', LIMITE.projeto)
   return alterar(id, autor, 'edição', () => {
     exigirCard(id, revisao)
     return atualizarCardOriginal(id, campos, autor)
@@ -672,6 +687,8 @@ export function moverCard(id: string, destino: Parameters<typeof moverCardOrigin
   })
 }
 export function comentar(id: string, autor: string, texto: string) {
+  if (typeof texto !== 'string' || !texto.trim()) throw new Error('texto é obrigatório')
+  exigirTamanho(texto, 'Comentário', LIMITE.texto)
   return db.transaction(() => {
     const resultado = comentarOriginal(id, autor, texto)
     // Comentário também invalida um desfazer antigo: outra pessoa pode ter agido.

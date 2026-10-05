@@ -38,6 +38,8 @@ const erro = (e: unknown) => ({
  */
 const AUTOR = z
   .string()
+  .min(1)
+  .max(60)
   .describe('Quem está agindo — identifique sua sessão (ex.: "claude", "codex", "agy")')
 
 export function criarServidorMcp() {
