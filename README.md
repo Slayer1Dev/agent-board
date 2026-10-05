@@ -8,7 +8,7 @@ When several AI sessions work on the same projects, each one starts from zero. N
 
 ![The board with cards from several agents](docs/screenshot.jpg)
 
-> The interface, the API routes and the MCP tool names are in Portuguese. The code is small and the tool descriptions are self-explanatory to an AI agent, but translations are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
+> The interface is available in English and Portuguese (Settings → Customize → Language; it follows the browser language the first time). The API routes, the MCP tool names and the default column names are in Portuguese, because agents refer to them by name. The tool descriptions are self-explanatory to an AI agent; see [CONTRIBUTING.md](CONTRIBUTING.md) to add another language.
 
 ## What it does
 
@@ -19,6 +19,7 @@ When several AI sessions work on the same projects, each one starts from zero. N
 - **Reminders and recurring tasks.** Agents can ask for "reminders due today" when a session starts.
 - **Safe to operate.** Archive instead of delete, undo (Ctrl+Z), and optimistic locking so two sessions do not overwrite each other.
 - **Three themes** (dark, light, glass) and wallpapers stored on the server.
+- **English and Portuguese interface**, switched in the settings.
 - **Small.** SQLite in a single file, no external services, few dependencies.
 
 ## Quick start
@@ -114,7 +115,7 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 - Polling, not WebSocket: a change made by another session appears within 4 seconds.
 - No user accounts. See the security model above.
-- Interface and API names are in Portuguese only.
+- API routes, MCP tool names and server error messages are in Portuguese only. The interface translates the default board and column names for display, but agents still use the Portuguese names ("A fazer", "Revisão").
 - Reminders are shown in the board and available to agents; nothing is pushed to phone or e-mail.
 
 ## Contributing

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, type Card, type Evento } from '../api'
+import { t, tDetalhe } from '../i18n'
 import { Autor, DataHora, Projeto, autorCriacao, projetoDoCard, tituloDoCard } from './Identidade'
 import { Tags } from './Tags'
 import { Lembrete } from './Lembretes'
@@ -26,7 +27,7 @@ export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
   useEffect(() => {
     const anterior = document.activeElement as HTMLElement | null
     painel.current?.focus()
-    const t = (e: KeyboardEvent) => {
+    const tecla = (e: KeyboardEvent) => {
       if (e.key === 'Escape') aoFechar()
       if (e.key !== 'Tab') return
       const campos = Array.from(painel.current?.querySelectorAll<HTMLElement>('button, input, textarea, select, [tabindex="0"]') || []).filter(el => !el.hasAttribute('disabled'))
@@ -34,8 +35,8 @@ export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
       if (e.shiftKey && (document.activeElement === primeiro || document.activeElement === painel.current)) { e.preventDefault(); ultimo?.focus() }
       else if (!e.shiftKey && (document.activeElement === ultimo || document.activeElement === painel.current)) { e.preventDefault(); primeiro?.focus() }
     }
-    window.addEventListener('keydown', t)
-    return () => { window.removeEventListener('keydown', t); anterior?.focus() }
+    window.addEventListener('keydown', tecla)
+    return () => { window.removeEventListener('keydown', tecla); anterior?.focus() }
   }, [aoFechar])
 
   async function salvar() {
@@ -43,7 +44,7 @@ export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
     setSalvando(true)
     try {
       const resultado = await api.atualizarCard(id, { descricao, revisao: card.revisao })
-      aoAcao(resultado, 'Descrição alterada')
+      aoAcao(resultado, t('Descrição alterada'))
       const atualizado = await api.card(id)
       setCard(atualizado)
       setErro(null)
@@ -54,10 +55,10 @@ export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
 
   async function enviarComentario(e: React.FormEvent) {
     e.preventDefault()
-    const t = comentario.trim()
-    if (!t) return
+    const texto = comentario.trim()
+    if (!texto) return
     try {
-      await api.comentar(id, t)
+      await api.comentar(id, texto)
       setComentario('')
       setCard(await api.card(id))
       setErro(null)
@@ -69,7 +70,7 @@ export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
     if (!card) return
     try {
       const resultado = card.arquivado_em ? await api.restaurar(id, card.revisao) : await api.arquivar(id, card.revisao)
-      aoAcao(resultado, card.arquivado_em ? 'Card restaurado' : 'Card arquivado')
+      aoAcao(resultado, card.arquivado_em ? t('Card restaurado') : t('Card arquivado'))
       aoMudar()
       aoFechar()
     } catch (e) { setErro((e as Error).message) }
@@ -86,10 +87,10 @@ export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
         aria-modal="true"
         aria-label={card?.titulo ?? 'Card'}
       >
-        <div className="painel__barra"><span>Contexto do card</span><button className="painel__fechar" onClick={aoFechar} aria-label="Fechar">×</button></div>
-        {erro && <p className="painel__erro" role="alert">Não foi possível concluir a operação: {erro}</p>}
+        <div className="painel__barra"><span>{t('Contexto do card')}</span><button className="painel__fechar" onClick={aoFechar} aria-label={t('Fechar')}>×</button></div>
+        {erro && <p className="painel__erro" role="alert">{t('Não foi possível concluir a operação: {erro}', { erro })}</p>}
         {!card ? (
-          <p className="painel__carregando" role="status">{erro ? 'Feche e abra o card para tentar novamente.' : 'Carregando contexto e histórico…'}</p>
+          <p className="painel__carregando" role="status">{erro ? t('Feche e abra o card para tentar novamente.') : t('Carregando contexto e histórico…')}</p>
         ) : (
           <>
             <header className="painel__topo">
@@ -97,13 +98,13 @@ export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
 
             </header>
 
-            {card.arquivado_em && <p className="painel__dica">Este card está arquivado. O histórico foi preservado.</p>}
-            <div className="painel__meta"><Projeto nome={projetoDoCard(card)} /><Autor nome={autorCriacao(card.eventos)} /><span className="painel__dica">Criado em <DataHora valor={card.criado_em} /></span></div>
+            {card.arquivado_em && <p className="painel__dica">{t('Este card está arquivado. O histórico foi preservado.')}</p>}
+            <div className="painel__meta"><Projeto nome={projetoDoCard(card)} /><Autor nome={autorCriacao(card.eventos)} /><span className="painel__dica">{t('Criado em')} <DataHora valor={card.criado_em} /></span></div>
 
             <Tags card={card} aoMudar={async () => { setCard(await api.card(id)); aoMudar() }} />
             <Lembrete key={`${id}-${card.revisao}`} card={card} aoMudar={async () => { setCard(await api.card(id)); aoMudar() }} />
             <Repeticao key={`rep-${id}-${card.revisao}`} card={card} aoMudar={async () => { setCard(await api.card(id)); aoMudar() }} />
-            <label className="rotulo" htmlFor="desc">Descrição</label>
+            <label className="rotulo" htmlFor="desc">{t('Descrição')}</label>
             <textarea
               id="desc"
               className="painel__desc"
@@ -111,18 +112,18 @@ export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
               onChange={(e) => setDescricao(e.target.value)}
               onBlur={salvar}
               rows={Math.min(20, Math.max(8, descricao.split("\n").length + Math.ceil(descricao.length / 100)))}
-              placeholder="Contexto, critério de pronto, links…"
+              placeholder={t('Contexto, critério de pronto, links…')}
             />
-            <p className="painel__dica" role="status">{salvando ? 'Salvando…' : 'A descrição é salva ao sair do campo.'}</p>
+            <p className="painel__dica" role="status">{salvando ? t('Salvando…') : t('A descrição é salva ao sair do campo.')}</p>
 
-            <h3 className="rotulo">Histórico <span>{card.eventos.length}</span></h3>
+            <h3 className="rotulo">{t('Histórico')} <span>{card.eventos.length}</span></h3>
             <ul className="historico">
               {card.eventos.map((e, i) => (
                 <li className={`evento${e.acao === 'comentou' ? ' evento--comentario' : ''}`} key={i}>
                   <Autor nome={e.autor} />
-                  <span className="evento__acao">{e.acao}</span>
+                  <span className="evento__acao">{t(e.acao)}</span>
                   <DataHora valor={e.criado_em} />
-                  {e.detalhe && <p className="evento__detalhe">{e.detalhe}</p>}
+                  {e.detalhe && <p className="evento__detalhe">{tDetalhe(e.acao, e.detalhe)}</p>}
                 </li>
               ))}
             </ul>
@@ -132,16 +133,16 @@ export function PainelCard({ id, aoFechar, aoMudar, aoAcao }: Props) {
                 className="comentar__campo"
                 value={comentario}
                 onChange={(e) => setComentario(e.target.value)}
-                placeholder="Deixar uma nota…"
-                aria-label="Comentário"
+                placeholder={t('Deixar uma nota…')}
+                aria-label={t('Comentário')}
               />
               <button className="btn btn--primario" type="submit">
-                Enviar
+                {t('Enviar')}
               </button>
             </form>
 
             <button className="btn btn--perigo" type="button" onClick={arquivar}>
-              {card.arquivado_em ? 'Restaurar card' : 'Arquivar card'}
+              {card.arquivado_em ? t('Restaurar card') : t('Arquivar card')}
             </button>
           </>
         )}

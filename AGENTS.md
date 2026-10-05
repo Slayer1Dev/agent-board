@@ -65,6 +65,11 @@ existe. As exceções são os documentos voltados a quem chega pelo GitHub:
 `CONTRIBUTING.md` são em inglês, e o `README.pt-BR.md` é o espelho em português.
 Mexeu num README? Atualize os dois.
 
+A interface tem dois idiomas (português e inglês). Todo texto que aparece na tela
+passa por `t('texto em português')`, de `web/src/i18n.ts`, e ganha uma linha na
+tabela `EN` do mesmo arquivo. Nomes que o servidor cria (quadro "Principal", colunas
+padrão) passam por `tNome()`: no banco e na API eles continuam em português.
+
 ### 7. Comentários explicam *por quê*
 
 `// incrementa o contador` é ruído. `// float com espaçamento largo para que

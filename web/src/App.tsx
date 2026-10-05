@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import './App.css'
 import { api, type Card, type Evento, type Quadro, type QuadroResumo } from './api'
+import { definirIdioma, localidade, t, tNome } from './i18n'
 import { Coluna } from './components/Coluna'
 import { PainelCard } from './components/PainelCard'
 import { Atividade } from './components/Atividade'
@@ -37,13 +38,17 @@ export default function App() {
   const wallpaperLegado = useRef(lerPreferencias().wallpaper)
   const [personalizando, setPersonalizando] = useState(false)
   const [erroPreferencia, setErroPreferencia] = useState('')
+  // Antes de qualquer texto: os componentes leem o idioma ao renderizar, e mudar a
+  // preferência renderiza o App de novo, o que retraduz a tela inteira.
+  definirIdioma(preferencias.idioma)
   useEffect(() => { document.documentElement.dataset.tema = preferencias.tema }, [preferencias.tema])
+  useEffect(() => { document.documentElement.lang = preferencias.idioma === 'pt' ? 'pt-BR' : 'en' }, [preferencias.idioma])
   function mudarAparencia(valor: Preferencias) {
     if (valor.wallpaper !== wallpaperUrl.current && wallpaperUrl.current) URL.revokeObjectURL(wallpaperUrl.current)
     wallpaperUrl.current = valor.wallpaper
     setPreferencias(valor)
     try { salvarPreferencias(valor); setErroPreferencia('') }
-    catch { setErroPreferencia('A aparência foi aplicada, mas não pôde ser salva neste navegador. Tente remover o wallpaper ou liberar espaço.') }
+    catch { setErroPreferencia(t('A aparência foi aplicada, mas não pôde ser salva neste navegador. Tente remover o wallpaper ou liberar espaço.')) }
   }
 
   const [filtros, setFiltros] = useState<Record<string, string>>(() => Object.fromEntries(new URLSearchParams(location.search)))
@@ -143,13 +148,13 @@ export default function App() {
   useEffect(() => {
     carregar()
     // Poll curto: outra sessão de IA pode mexer no quadro a qualquer momento.
-    const t = setInterval(() => carregar(), 4000)
-    return () => clearInterval(t)
+    const timer = setInterval(() => carregar(), 4000)
+    return () => clearInterval(timer)
   }, [carregar])
 
   function registrarAcao(card: Card, nome: string) {
     if (card.acao_id) setAcoes(a => [...a.slice(-29), { id: card.acao_id!, nome }])
-    setAvisoAcao(nome + '. Você pode desfazer pelo botão ou Ctrl+Z.')
+    setAvisoAcao(t('{acao}. Você pode desfazer pelo botão ou Ctrl+Z.', { acao: nome }))
     assinatura.current = ''
     void carregar()
   }
@@ -161,7 +166,7 @@ export default function App() {
       await api.desfazer(ultima.id)
       setAcoes(a => a.filter(item => item.id !== ultima.id))
       setSelecionado(null); setArquivadosAbertos(false)
-      setAvisoAcao('Desfeito: ' + ultima.nome.toLocaleLowerCase() + '.')
+      setAvisoAcao(t('Desfeito: {acao}.', { acao: ultima.nome.toLocaleLowerCase() }))
       assinatura.current = ''
       await carregar()
     } catch (e) { setAvisoAcao((e as Error).message) }
@@ -205,7 +210,7 @@ export default function App() {
 
     try {
       const card = await api.moverCard(id, colunaId, undefined, original?.revisao)
-      registrarAcao(card, 'Card movido')
+      registrarAcao(card, t('Card movido'))
     } catch (e) {
       setErro((e as Error).message)
     }
@@ -216,7 +221,7 @@ export default function App() {
   async function adicionar(colunaId: string, titulo: string) {
     try {
       const card = await api.criarCard({ titulo, colunaId })
-      registrarAcao(card, 'Card criado')
+      registrarAcao(card, t('Card criado'))
       assinatura.current = ''
       carregar()
     } catch (e) {
@@ -229,11 +234,11 @@ export default function App() {
       <div className="vazio" role="status">
         {erro ? (
           <>
-            <p className="vazio__erro">Não consegui falar com o servidor.</p>
-            <p className="vazio__dica">Verifique se o servidor do quadro está no ar e se este computador o alcança. Tentaremos novamente automaticamente.</p><p className="vazio__tecnico">{erro}</p>
+            <p className="vazio__erro">{t('Não consegui falar com o servidor.')}</p>
+            <p className="vazio__dica">{t('Verifique se o servidor do quadro está no ar e se este computador o alcança. Tentaremos novamente automaticamente.')}</p><p className="vazio__tecnico">{erro}</p>
           </>
         ) : (
-          <><div className="carregando" aria-hidden="true"><i /><i /><i /><i /></div><h1>Carregando o quadro</h1><p>Buscando cards e atividade recente…</p></>
+          <><div className="carregando" aria-hidden="true"><i /><i /><i /><i /></div><h1>{t('Carregando o quadro')}</h1><p>{t('Buscando cards e atividade recente…')}</p></>
         )}
       </div>
     )
@@ -241,7 +246,7 @@ export default function App() {
 
   const total = quadro.colunas.reduce((n, c) => n + c.cards.length, 0)
 
-  const projetos = [...new Set(quadro.colunas.flatMap(c => c.cards.map(projetoDoCard)))].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  const projetos = [...new Set(quadro.colunas.flatMap(c => c.cards.map(projetoDoCard)))].sort((a, b) => a.localeCompare(b, localidade()))
   const filtrar = (c: Card) => !Object.keys(filtros).length || !!idsFiltrados?.has(c.id)
   const visiveis = quadro.colunas.reduce((n, c) => n + c.cards.filter(filtrar).length, 0)
 
@@ -250,7 +255,7 @@ export default function App() {
       <header className="topo">
         <div className="topo__identidade">
           <span className="marca" aria-hidden="true"><i /><i /><i /></span>
-          <h1 className="topo__titulo" title="agent-board · espaço de trabalho">{quadro.nome}</h1>
+          <h1 className="topo__titulo" title={t('agent-board · espaço de trabalho')}>{tNome(quadro.nome)}</h1>
         </div>
         <Busca aoAbrir={setSelecionado} versao={assinatura.current} />
         <div className="topo__acoes">
@@ -258,26 +263,26 @@ export default function App() {
           <Projetos aoEscolher={setProjeto} atual={projeto} versao={assinatura.current} semProjeto={projetos.includes('')} quadro={quadro.id} />
           <LembretesTopo versao={assinatura.current} aoAbrir={setSelecionado} />
           <div className="menu" ref={menuRef}>
-            <button ref={botaoMenuRef} className={`btn menu__botao${erro ? ' menu__botao--alerta' : ''}`} aria-label={erro ? 'Ajustes (conexão interrompida)' : 'Ajustes'} title="Ajustes" aria-haspopup="menu" aria-expanded={menuAberto} aria-controls="menu-ajustes" onClick={() => setMenuAberto(a => !a)} onKeyDown={e => { if (e.key === 'ArrowDown') { e.preventDefault(); setMenuAberto(true) } }}>
+            <button ref={botaoMenuRef} className={`btn menu__botao${erro ? ' menu__botao--alerta' : ''}`} aria-label={erro ? t('Ajustes (conexão interrompida)') : t('Ajustes')} title={t('Ajustes')} aria-haspopup="menu" aria-expanded={menuAberto} aria-controls="menu-ajustes" onClick={() => setMenuAberto(a => !a)} onKeyDown={e => { if (e.key === 'ArrowDown') { e.preventDefault(); setMenuAberto(true) } }}>
               <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="3.5" cy="9" r="1.6" fill="currentColor" /><circle cx="9" cy="9" r="1.6" fill="currentColor" /><circle cx="14.5" cy="9" r="1.6" fill="currentColor" /></svg>
             </button>
             {menuAberto && (
-              <div id="menu-ajustes" className="menu__lista" role="menu" aria-label="Ajustes" onKeyDown={teclasDoMenu}>
-                <button role="menuitem" className="menu__item" disabled={!acoes.length || desfazendo} onClick={() => { fecharMenu(); void desfazer() }}><span>{desfazendo ? 'Desfazendo…' : 'Desfazer'}</span><kbd>Ctrl+Z</kbd></button>
-                <button role="menuitem" className="menu__item" onClick={() => { fecharMenu(); setArquivadosAbertos(true) }}>Arquivados</button>
-                <button role="menuitem" className="menu__item" onClick={() => { fecharMenu(); setPersonalizando(true) }}>Personalizar</button>
+              <div id="menu-ajustes" className="menu__lista" role="menu" aria-label={t('Ajustes')} onKeyDown={teclasDoMenu}>
+                <button role="menuitem" className="menu__item" disabled={!acoes.length || desfazendo} onClick={() => { fecharMenu(); void desfazer() }}><span>{desfazendo ? t('Desfazendo…') : t('Desfazer')}</span><kbd>Ctrl+Z</kbd></button>
+                <button role="menuitem" className="menu__item" onClick={() => { fecharMenu(); setArquivadosAbertos(true) }}>{t('Arquivados')}</button>
+                <button role="menuitem" className="menu__item" onClick={() => { fecharMenu(); setPersonalizando(true) }}><span>{t('Personalizar')}</span><kbd>{preferencias.idioma === 'pt' ? 'PT' : 'EN'}</kbd></button>
                 <div className="menu__separador" role="separator" />
-                <div className="menu__info"><span className={`conexao${erro ? ' conexao--erro' : ''}`}>{erro ? 'Conexão interrompida' : 'Atualização automática ativa'}</span><span>{Object.keys(filtros).length ? `${visiveis} de ${total}` : total} cards</span></div>
+                <div className="menu__info"><span className={`conexao${erro ? ' conexao--erro' : ''}`}>{erro ? t('Conexão interrompida') : t('Atualização automática ativa')}</span><span>{Object.keys(filtros).length ? t('{n} de {total} cards', { n: visiveis, total }) : t('{total} cards', { total })}</span></div>
               </div>
             )}
           </div>
         </div>
       </header>
       <FiltrosAtivos valor={filtros} aoMudar={setFiltros} tags={tags} visiveis={visiveis} total={total} />
-      {avisoAcao && <div className="aviso-acao" role="status"><span>{avisoAcao}</span><button onClick={() => setAvisoAcao('')} aria-label="Fechar aviso">×</button></div>}
+      {avisoAcao && <div className="aviso-acao" role="status"><span>{avisoAcao}</span><button onClick={() => setAvisoAcao('')} aria-label={t('Fechar aviso')}>×</button></div>}
       {erroPreferencia && <p className="aviso-conexao" role="alert">{erroPreferencia}</p>}
-      {erro && <div className="aviso-conexao" role="alert"><strong>Não foi possível atualizar o quadro.</strong> Os últimos dados continuam visíveis. Tentando reconectar… <span>{erro}</span></div>}
-      <main className="quadro" aria-label="Quadro Kanban">
+      {erro && <div className="aviso-conexao" role="alert"><strong>{t('Não foi possível atualizar o quadro.')}</strong> {t('Os últimos dados continuam visíveis. Tentando reconectar…')} <span>{erro}</span></div>}
+      <main className="quadro" aria-label={t('Quadro Kanban')}>
         {quadro.colunas.map((c) => (
           <Coluna
             key={c.id}
@@ -299,7 +304,7 @@ export default function App() {
         inicio={<Quadros quadros={quadros} atual={quadro.id} aoEscolher={escolherQuadro} aoMudar={async () => { assinatura.current = ''; await carregar() }} />}
       />
 
-      {arquivadosAbertos && <Arquivados aoFechar={() => setArquivadosAbertos(false)} aoRestaurar={card => registrarAcao(card, 'Card restaurado')} aoAbrir={id => { setArquivadosAbertos(false); setSelecionado(id) }} />}
+      {arquivadosAbertos && <Arquivados aoFechar={() => setArquivadosAbertos(false)} aoRestaurar={card => registrarAcao(card, t('Card restaurado'))} aoAbrir={id => { setArquivadosAbertos(false); setSelecionado(id) }} />}
       {personalizando && <Aparencia valor={preferencias} aoMudar={mudarAparencia} aoFechar={() => setPersonalizando(false)} />}
       {selecionado && (
         <PainelCard

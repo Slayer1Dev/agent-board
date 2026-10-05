@@ -17,6 +17,7 @@ Quando várias sessões de IA trabalham nos mesmos projetos, cada uma começa do
 - **Lembretes e tarefas repetidas.** O agente pode pedir "lembretes de hoje" ao começar a sessão.
 - **Seguro de operar.** Arquivar em vez de apagar, desfazer (Ctrl+Z) e controle de revisão para duas sessões não se sobrescreverem.
 - **Três temas** (escuro, claro e vidro) e wallpapers guardados no servidor.
+- **Interface em português e inglês**, trocada nos ajustes (Personalizar → Idioma). Na primeira vez segue o idioma do navegador.
 - **Pequeno.** SQLite em um arquivo, sem serviços externos, poucas dependências.
 
 ## Começando
@@ -112,7 +113,7 @@ Para relatar uma vulnerabilidade, veja [SECURITY.md](SECURITY.md).
 
 - Consulta periódica, não WebSocket: a mudança de outra sessão aparece em até 4 segundos.
 - Sem contas de usuário. Veja o modelo de segurança acima.
-- Interface e nomes da API só em português.
+- Rotas da API, nomes das ferramentas MCP e mensagens de erro do servidor só em português. Em inglês a interface traduz o nome do quadro e das colunas padrão só na tela; os agentes continuam usando os nomes em português ("A fazer", "Revisão").
 - Os lembretes aparecem no quadro e ficam disponíveis para os agentes; nada é enviado para celular ou e-mail.
 
 ## Contribuindo

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import type { Evento } from '../api'
+import { t, tDetalhe } from '../i18n'
 import { Autor, DataHora } from './Identidade'
 
 /**
@@ -19,8 +20,8 @@ export function Atividade({ eventos, inicio }: { eventos: Evento[]; inicio?: Rea
         aria-expanded={aberta}
         aria-controls="atividade-lista"
       >
-        <span className="atividade__titulo">Atividade recente</span><span className="atividade__contagem">{eventos.length}</span>
-        {!aberta && eventos[0] && <span className="atividade__resumo"><Autor nome={eventos[0].autor} /><span>{eventos[0].acao} · {eventos[0].card_titulo || eventos[0].detalhe}</span></span>}
+        <span className="atividade__titulo">{t('Atividade recente')}</span><span className="atividade__contagem">{eventos.length}</span>
+        {!aberta && eventos[0] && <span className="atividade__resumo"><Autor nome={eventos[0].autor} /><span>{t(eventos[0].acao)} · {eventos[0].card_titulo || tDetalhe(eventos[0].acao, eventos[0].detalhe)}</span></span>}
         <span className="atividade__seta" aria-hidden="true">
           {aberta ? '▾' : '▴'}
         </span>
@@ -29,13 +30,13 @@ export function Atividade({ eventos, inicio }: { eventos: Evento[]; inicio?: Rea
 
       {aberta && (
         <ul className="atividade__lista" id="atividade-lista">
-          {eventos.length === 0 && <li className="atividade__vazio">Nenhuma atividade registrada ainda.</li>}
+          {eventos.length === 0 && <li className="atividade__vazio">{t('Nenhuma atividade registrada ainda.')}</li>}
           {eventos.map((e, i) => (
             <li className="evento" key={i}>
               <Autor nome={e.autor} />
-              <span className="evento__acao">{e.acao}</span>
+              <span className="evento__acao">{t(e.acao)}</span>
               {e.card_titulo && <span className="evento__alvo">{e.card_titulo}</span>}
-              {e.detalhe && <span className="evento__detalhe">{e.detalhe}</span>}
+              {e.detalhe && <span className="evento__detalhe">{tDetalhe(e.acao, e.detalhe)}</span>}
               <DataHora valor={e.criado_em} />
             </li>
           ))}

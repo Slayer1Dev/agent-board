@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type Card, type Tag } from '../api'
+import { t } from '../i18n'
 
 export function Tags({ card, aoMudar }: { card: Card; aoMudar: () => Promise<void> }) {
   const [tags, setTags] = useState<Tag[]>([])
@@ -14,8 +15,8 @@ export function Tags({ card, aoMudar }: { card: Card; aoMudar: () => Promise<voi
     finally { setOcupado(false) }
   }
   return <fieldset className="controles" disabled={ocupado}><legend>Tags</legend>
-    <div className="tags">{tags.map(t => <label className="tag" key={t.id} style={{ borderColor: t.cor }}><input type="checkbox" checked={card.tags.some(a => a.id === t.id)} onChange={e => void executar(() => api.definirTags(card.id, e.target.checked ? [...card.tags.map(a => a.id), t.id] : card.tags.filter(a => a.id !== t.id).map(a => a.id), card.revisao))} />{t.nome}<button type="button" aria-label={`Renomear ${t.nome}`} onClick={() => { const n = prompt('Novo nome da tag', t.nome); if (n) void executar(() => api.renomearTag(t.id, n)) }}>✎</button><button type="button" aria-label={`Apagar ${t.nome}`} onClick={() => { if (confirm(`Apagar a tag ${t.nome} de todos os cards?`)) void executar(() => api.apagarTag(t.id)) }}>×</button></label>)}</div>
-    <div className="linha-campos"><input aria-label="Nova tag" value={nome} maxLength={60} onChange={e => setNome(e.target.value)} placeholder="Nova tag" /><button type="button" className="btn" disabled={!nome.trim()} onClick={() => void executar(async () => { const t = await api.criarTag(nome); await api.definirTags(card.id, [...card.tags.map(a => a.id), t.id], card.revisao); setNome('') })}>Criar e adicionar</button></div>
+    <div className="tags">{tags.map(tag => <label className="tag" key={tag.id} style={{ borderColor: tag.cor }}><input type="checkbox" checked={card.tags.some(a => a.id === tag.id)} onChange={e => void executar(() => api.definirTags(card.id, e.target.checked ? [...card.tags.map(a => a.id), tag.id] : card.tags.filter(a => a.id !== tag.id).map(a => a.id), card.revisao))} />{tag.nome}<button type="button" aria-label={t('Renomear {nome}', { nome: tag.nome })} onClick={() => { const n = prompt(t('Novo nome da tag'), tag.nome); if (n) void executar(() => api.renomearTag(tag.id, n)) }}>✎</button><button type="button" aria-label={t('Apagar {nome}', { nome: tag.nome })} onClick={() => { if (confirm(t('Apagar a tag {nome} de todos os cards?', { nome: tag.nome }))) void executar(() => api.apagarTag(tag.id)) }}>×</button></label>)}</div>
+    <div className="linha-campos"><input aria-label={t('Nova tag')} value={nome} maxLength={60} onChange={e => setNome(e.target.value)} placeholder={t('Nova tag')} /><button type="button" className="btn" disabled={!nome.trim()} onClick={() => void executar(async () => { const nova = await api.criarTag(nome); await api.definirTags(card.id, [...card.tags.map(a => a.id), nova.id], card.revisao); setNome('') })}>{t('Criar e adicionar')}</button></div>
     {erro && <p role="alert">{erro}</p>}
   </fieldset>
 }

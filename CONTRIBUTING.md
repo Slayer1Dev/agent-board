@@ -8,6 +8,7 @@ Thanks for your interest. This is a small personal project; contributions that k
 
 - **Open an issue first** for anything bigger than a bug fix, so we can agree on the approach before you spend time on it.
 - **The project language is Portuguese**: code identifiers, comments, interface text and API names. Please keep new code consistent with that. Issues and pull requests can be written in English or Portuguese.
+- **Interface text goes through `t()`** (`web/src/i18n.ts`). The Portuguese text is the key: write `t('Salvar')` and add the English line to the `EN` table in the same file. A missing line shows the Portuguese text, it does not break the screen. Names the server creates (default board and columns) go through `tNome()`.
 - **Read [AGENTS.md](AGENTS.md).** It is written for AI agents, but the rules apply to everyone: business rules live in `server/src/nucleo.ts`, every write records an author, no new dependencies without a good reason, strict TypeScript.
 
 ## Setup
@@ -47,6 +48,7 @@ Obrigado pelo interesse. Este é um projeto pessoal e pequeno; as contribuiçõe
 
 - **Abra uma issue antes** de qualquer coisa maior que uma correção, para combinarmos o caminho antes de você gastar tempo.
 - **O idioma do projeto é o português**: identificadores, comentários, textos da interface e nomes da API. Issues e pull requests podem ser em português ou inglês.
+- **Texto de interface passa por `t()`** (`web/src/i18n.ts`). O texto em português é a chave: escreva `t('Salvar')` e acrescente a linha em inglês na tabela `EN` do mesmo arquivo. Linha faltando mostra o texto em português, não quebra a tela. Nomes criados pelo servidor (quadro e colunas padrão) passam por `tNome()`.
 - **Leia o [AGENTS.md](AGENTS.md).** Foi escrito para agentes de IA, mas as regras valem para todos: regra de negócio fica em `server/src/nucleo.ts`, toda escrita registra autor, nada de dependência nova sem bom motivo, TypeScript estrito.
 
 ## Antes de abrir um pull request

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { t } from '../i18n'
 
 type Props = {
   /** Texto do botão. Em telas estreitas some e fica só o ícone. */
@@ -64,7 +65,7 @@ export function Popover({ rotulo, titulo, icone, contador, ativo, alerta, soIcon
         <div id={id} className="pop__painel" role="dialog" aria-label={titulo} style={{ width: largura }}>
           <header className="pop__cabeca">
             <strong>{titulo}</strong>
-            <button type="button" className="pop__fechar" aria-label="Fechar" onClick={fechar}>×</button>
+            <button type="button" className="pop__fechar" aria-label={t('Fechar')} onClick={fechar}>×</button>
           </header>
           {typeof children === 'function' ? children(fechar) : children}
         </div>

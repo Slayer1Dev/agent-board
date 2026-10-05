@@ -1,3 +1,5 @@
+import { t } from './i18n'
+
 export type Card = {
   id: string
   coluna_id: string
@@ -58,7 +60,7 @@ async function req<T>(caminho: string, init?: RequestInit): Promise<T> {
 export const api = {
   imagemWallpaper: async (id: string) => {
     const r = await fetch(`${BASE}/wallpapers/${id}/arquivo`, { headers: CHAVE ? { Authorization: `Bearer ${CHAVE}` } : {} })
-    if (!r.ok) throw new Error('Não foi possível carregar o wallpaper.')
+    if (!r.ok) throw new Error(t('Não foi possível carregar o wallpaper.'))
     return URL.createObjectURL(await r.blob())
   },
   wallpapers: () => req<Wallpaper[]>('/wallpapers'),

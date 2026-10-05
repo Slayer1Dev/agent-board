@@ -758,3 +758,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   .atividade__barra .pop__botao { min-width: 40px; min-height: 40px; }
   .pop--cima .pop__painel { top: auto; bottom: calc(100% + 6px); }
 }
+
+/* Idioma, no painel de personalização */
+.idiomas { display: inline-flex; }
+.idiomas button { min-width: 96px; }
